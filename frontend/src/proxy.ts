@@ -16,7 +16,9 @@ export function proxy(request: NextRequest) {
 export const config = {
   // Every app section (keep in sync with src/lib/nav.ts).
   matcher: [
+    "/wallet/:path*",
     "/overview/:path*",
+    "/insights/:path*",
     "/transactions/:path*",
     "/import/:path*",
     "/rules/:path*",

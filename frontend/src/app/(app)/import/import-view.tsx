@@ -24,7 +24,7 @@ const STATUS: Record<ImportBatch["status"], { text: string; variant: "secondary"
   cancelled: { text: "Cancelled / undone", variant: "outline" },
 };
 
-export function ImportView() {
+export function ImportView({ isDemo = false }: { isDemo?: boolean }) {
   const router = useRouter();
   const [mode, setMode] = useState<"file" | "sms">("file");
   const [smsText, setSmsText] = useState("");
@@ -59,6 +59,29 @@ export function ImportView() {
     router.push(`/import?batch=${r.data.id}`);
   }
 
+  // Demo: one-click imports of sample files (made for this sandbox, or bundled).
+  async function sendSample(url: string, filename: string, type: string) {
+    setError("");
+    setBusy(true);
+    try {
+      const res = await fetch(url, { credentials: "same-origin" });
+      if (!res.ok) throw new Error();
+      const form = new FormData();
+      form.append("file", new File([await res.blob()], filename, { type }));
+      await send(form);
+    } catch {
+      setBusy(false);
+      setError("Couldn't load the sample file. Please try again.");
+    }
+  }
+
+  async function fillSampleSms() {
+    const res = await fetch("/api/demo/sample-sms.txt", { credentials: "same-origin" }).catch(() => null);
+    if (!res?.ok) return setError("Couldn't load the sample messages. Please try again.");
+    setMode("sms");
+    setSmsText(await res.text());
+  }
+
   function sendFile(file: File | undefined) {
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) return setError("The file is bigger than 10 MB. Try a shorter date range.");
@@ -73,6 +96,31 @@ export function ImportView() {
         title="Import Statements"
         description="Bring in transactions from your bank instead of typing them. You'll see everything CASIO found, and can fix it, before anything is saved."
       />
+
+      {isDemo && (
+        <Card className="mb-6 border-primary/30 bg-primary/5">
+          <CardContent className="space-y-3">
+            <div>
+              <p className="font-medium">Try Smart Import with sample files</p>
+              <p className="text-muted-foreground text-sm">
+                The sample statement was made for this demo account: 3 of its rows are already saved (watch CASIO flag them as duplicates), and the
+                new ones include a café CASIO doesn&apos;t recognise. Change its category in the review and choose whether to save it as a rule.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button disabled={busy} onClick={() => sendSample("/api/demo/sample-statement.csv", "casio-demo-new-statement.csv", "text/csv")}>
+                Import sample CSV statement
+              </Button>
+              <Button variant="outline" disabled={busy} onClick={() => sendSample("/samples/sample-statement.pdf", "sample-statement.pdf", "application/pdf")}>
+                Import sample PDF
+              </Button>
+              <Button variant="outline" disabled={busy} onClick={fillSampleSms}>
+                Paste sample bank SMS
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="mb-4 inline-flex rounded-lg border bg-white p-1" role="tablist" aria-label="How to import">
         {(

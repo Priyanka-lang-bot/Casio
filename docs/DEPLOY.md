@@ -71,3 +71,14 @@ BASE_URL=https://casio-three.vercel.app node docs/e2e-planning-test.js
 ```
 
 Note that this test creates an account and then deletes it at the end.
+
+## The demo ("Try CASIO Demo")
+
+The login page has a **Try CASIO Demo** button. Each press calls `POST /api/demo/start`, which creates a brand-new private sandbox account (`users.is_demo = true`) filled with fictional sample data, and signs that browser into it. There is no shared demo login and no published password.
+
+- Sample data (`backend/app/demo/seed.py`) is generated relative to today: six full months plus the current month so far, ₹45,000 salary, about ₹28,500 usual spending, four subscriptions (Netflix rises from ₹499 to ₹649), budgets, two goals, profile estimates, three saved rules. The bank-statement part goes through the normal import pipeline.
+- Visitors can't see each other's sandboxes. **Reset demo** (`POST /api/demo/reset`) swaps the current sandbox for a fresh one.
+- Sandboxes older than 24 hours are deleted whenever a new one starts (at most 400 live at once; 15 new sandboxes per visitor per hour).
+- Inside the demo, Smart Import offers a sample statement made for that sandbox (`GET /api/demo/sample-statement.csv`, with 3 rows that are already saved, to show duplicate detection) and sample bank SMS.
+
+Browser test: `BASE_URL=https://casio-three.vercel.app OUT=/tmp/shots node docs/e2e-wallet-demo-test.js`

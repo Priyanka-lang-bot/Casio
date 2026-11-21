@@ -89,6 +89,7 @@ class UserOut(BaseModel):
     id: uuid.UUID
     email: str
     full_name: str
+    is_demo: bool = False
 
 
 class MessageOut(BaseModel):
