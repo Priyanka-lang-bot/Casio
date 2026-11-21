@@ -487,3 +487,126 @@ class RecurringAlert(Base):
     dedupe_key: Mapped[str] = mapped_column(String(200))  # the same event never alerts twice
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+# ---------------------------------------------------------------------------
+# Planning: budgets, goals, snapshots (Phase 4)
+# ---------------------------------------------------------------------------
+class Budget(Timestamps, Base):
+    """A monthly spending limit for one category (a PLANNED allocation)."""
+
+    __tablename__ = "budgets"
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="amount_positive"),
+        UniqueConstraint("user_id", "category_id", name="uq_budget_user_category"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = owner_column()
+    category_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("categories.id", ondelete="CASCADE"))
+    amount: Mapped[Decimal] = mapped_column(Money)
+
+    category: Mapped[Category] = relationship(lazy="joined")
+
+
+GOAL_KINDS = ("emergency_fund", "purchase", "education", "travel", "home", "debt", "other")
+
+
+class FinancialGoal(Timestamps, Base):
+    __tablename__ = "financial_goals"
+    __table_args__ = (
+        CheckConstraint("target_amount > 0", name="target_positive"),
+        CheckConstraint("saved_amount >= 0", name="saved_not_negative"),
+        CheckConstraint("monthly_contribution IS NULL OR monthly_contribution >= 0", name="contribution_not_negative"),
+        CheckConstraint("kind IN ('" + "','".join(GOAL_KINDS) + "')", name="kind_valid"),
+        CheckConstraint("status IN ('active','achieved','paused')", name="status_valid"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = owner_column()
+    name: Mapped[str] = mapped_column(String(100))
+    kind: Mapped[str] = mapped_column(String(20), default="other")
+    target_amount: Mapped[Decimal] = mapped_column(Money)
+    saved_amount: Mapped[Decimal] = mapped_column(Money, default=Decimal("0"))
+    target_date: Mapped[date | None] = mapped_column(Date)
+    monthly_contribution: Mapped[Decimal | None] = mapped_column(Money)
+    priority: Mapped[int] = mapped_column(Integer, default=2)  # 1 high, 2 normal, 3 low
+    status: Mapped[str] = mapped_column(String(10), default="active")
+
+
+class GoalContribution(Base):
+    """Money the user says they put towards (or took out of) a goal."""
+
+    __tablename__ = "goal_contributions"
+    __table_args__ = (CheckConstraint("amount <> 0", name="amount_not_zero"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = owner_column()
+    goal_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("financial_goals.id", ondelete="CASCADE"), index=True)
+    amount: Mapped[Decimal] = mapped_column(Money)
+    contributed_on: Mapped[date] = mapped_column(Date)
+    note: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class FinancialSnapshot(Base):
+    """The Living Money Model as it stood in one month, kept so changes over
+    time can be compared. One per user per month, refreshed during the month."""
+
+    __tablename__ = "financial_snapshots"
+    __table_args__ = (UniqueConstraint("user_id", "month", name="uq_snapshot_user_month"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = owner_column()
+    month: Mapped[date] = mapped_column(Date)  # first day of the month
+    data: Mapped[dict] = mapped_column(JSONB)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+# ---------------------------------------------------------------------------
+# Coaching: nudges, monthly reports, AI coach (Phase 5)
+# ---------------------------------------------------------------------------
+class FinancialNudge(Base):
+    __tablename__ = "financial_nudges"
+    __table_args__ = (
+        CheckConstraint("severity IN ('info','warning','critical','good')", name="severity_valid"),
+        UniqueConstraint("user_id", "dedupe_key", name="uq_nudge_user_key"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = owner_column()
+    kind: Mapped[str] = mapped_column(String(30))
+    severity: Mapped[str] = mapped_column(String(10))
+    title: Mapped[str] = mapped_column(String(150))
+    message: Mapped[str] = mapped_column(String(500))
+    link: Mapped[str | None] = mapped_column(String(100))
+    dedupe_key: Mapped[str] = mapped_column(String(200))
+    active: Mapped[bool] = mapped_column(default=True)  # false once the condition no longer holds
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class MonthlyReport(Base):
+    __tablename__ = "monthly_reports"
+    __table_args__ = (UniqueConstraint("user_id", "month", name="uq_report_user_month"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = owner_column()
+    month: Mapped[date] = mapped_column(Date)
+    data: Mapped[dict] = mapped_column(JSONB)
+    narrative: Mapped[str] = mapped_column(Text)
+    narrative_source: Mapped[str] = mapped_column(String(10))  # 'ai' or 'template'
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class CoachMessage(Base):
+    __tablename__ = "coach_messages"
+    __table_args__ = (CheckConstraint("role IN ('user','assistant')", name="role_valid"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = owner_column()
+    role: Mapped[str] = mapped_column(String(10))
+    content: Mapped[str] = mapped_column(Text)
+    # tools used, guardrail decisions, whether AI or the built-in helper answered
+    meta: Mapped[dict | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)

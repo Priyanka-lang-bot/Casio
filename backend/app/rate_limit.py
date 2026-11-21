@@ -35,5 +35,24 @@ def reset(key: str | None = None) -> None:
     with _lock:
         if key is None:
             _failures.clear()
+            _events.clear()
         else:
             _failures.pop(key, None)
+
+
+# General-purpose limiter for expensive actions (e.g. AI coach questions).
+_events: dict[str, deque[float]] = defaultdict(deque)
+
+
+def allow(key: str, limit: int, window_seconds: int) -> bool:
+    """True (and counts the attempt) if fewer than `limit` attempts happened
+    in the last `window_seconds`. Best effort: per server process."""
+    now = time.monotonic()
+    with _lock:
+        q = _events[key]
+        while q and now - q[0] > window_seconds:
+            q.popleft()
+        if len(q) >= limit:
+            return False
+        q.append(now)
+        return True

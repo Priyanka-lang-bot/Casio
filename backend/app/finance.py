@@ -73,12 +73,19 @@ def to_json(value):
     so no precision is lost to floating point on the way to the browser."""
     from pydantic import BaseModel
 
+    import datetime as _dt
+    import uuid as _uuid
+
     if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, _dt.date | _dt.datetime):
+        return value.isoformat()
+    if isinstance(value, _uuid.UUID):
         return str(value)
     if isinstance(value, BaseModel):
         return value.model_dump(mode="json")
     if isinstance(value, dict):
-        return {k: to_json(v) for k, v in value.items()}
+        return {str(k) if isinstance(k, _uuid.UUID) else k: to_json(v) for k, v in value.items()}
     if isinstance(value, list | tuple):
         return [to_json(v) for v in value]
     return value
