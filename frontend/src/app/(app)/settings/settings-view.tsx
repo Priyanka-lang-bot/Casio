@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { api } from "@/lib/api";
+import { AccountSettings } from "./account-settings";
 
 const CURRENCIES = { INR: "Indian rupee (₹)", USD: "US dollar ($)", EUR: "Euro (€)", GBP: "British pound (£)", AED: "UAE dirham", SGD: "Singapore dollar" };
 
@@ -90,14 +91,7 @@ export function SettingsView({ name, email }: { name: string; email: string }) {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Your data</CardTitle>
-            <CardDescription>
-              Downloading all your data and deleting your account are planned for a later phase.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        <AccountSettings name={name} />
       </div>
     </>
   );

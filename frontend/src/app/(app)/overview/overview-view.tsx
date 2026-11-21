@@ -6,6 +6,7 @@ import { ArrowDownIcon, ArrowUpIcon, BellIcon, PlusIcon, UserRoundIcon } from "l
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { BasisBadge } from "@/components/basis-badge";
 import { Alert } from "@/components/form";
+import { NudgeList } from "@/components/nudge-list";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -90,6 +91,7 @@ export function OverviewView({ firstName }: { firstName: string }) {
                   <UserRoundIcon /> Fill in profile
                 </Link>
               </Button>
+              <DemoButton />
             </div>
           </CardContent>
         </Card>
@@ -107,6 +109,12 @@ export function OverviewView({ firstName }: { firstName: string }) {
             </ul>
           </CardContent>
         </Card>
+      )}
+
+      {data.has_transactions && (
+        <div className="mb-6">
+          <NudgeList limit={4} />
+        </div>
       )}
 
       <div className="mb-2 flex items-center gap-2">
@@ -266,6 +274,30 @@ export function OverviewView({ firstName }: { firstName: string }) {
           </CardContent>
         </Card>
       </div>
+    </>
+  );
+}
+
+// One click to try CASIO with a realistic 6-month sample statement.
+function DemoButton() {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  return (
+    <>
+      <Button
+        variant="secondary"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          const r = await api("/account/demo-data", {});
+          setBusy(false);
+          if (!r.ok) return setError(r.message);
+          window.location.reload();
+        }}
+      >
+        {busy ? "Adding sample data…" : "Try with sample data"}
+      </Button>
+      {error && <p className="text-destructive w-full text-sm">{error}</p>}
     </>
   );
 }

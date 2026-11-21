@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { api, safeNext, type User } from "@/lib/api";
 
-export function LoginForm({ next, justReset }: { next?: string; justReset: boolean }) {
+export function LoginForm({ next, justReset, justDeleted }: { next?: string; justReset: boolean; justDeleted?: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -41,6 +41,7 @@ export function LoginForm({ next, justReset }: { next?: string; justReset: boole
       <p className="mt-1 text-sm text-muted-foreground">Welcome back. Enter your details to continue.</p>
       <form onSubmit={onSubmit} noValidate className="mt-6 space-y-4">
         {justReset && <Alert kind="success">Your password has been changed. Log in with your new password.</Alert>}
+        {justDeleted && <Alert kind="success">Your account and all its data have been deleted.</Alert>}
         {error && <Alert kind="error">{error}</Alert>}
         <TextField label="Email" name="email" type="email" autoComplete="email" required error={fields.email} />
         <PasswordField label="Password" name="password" autoComplete="current-password" required error={fields.password} />
