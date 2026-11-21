@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from app.routers import account, auth, coaching, imports, overview, planning, profile, rules, subscriptions, transactions
+from app.routers import account, auth, coaching, demo, imports, overview, planning, profile, rules, subscriptions, transactions
 
 from app.config import get_settings  # noqa: E402
 
@@ -46,7 +46,7 @@ async def friendly_validation_errors(request: Request, exc: RequestValidationErr
 
 for r in (
     auth.router, account.router, profile.router, transactions.router, overview.router, imports.router, rules.router,
-    subscriptions.router, planning.router, coaching.router,
+    subscriptions.router, planning.router, coaching.router, demo.router,
 ):
     app.include_router(r, prefix="/api")
 

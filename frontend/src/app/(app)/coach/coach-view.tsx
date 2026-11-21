@@ -13,12 +13,13 @@ import type { CoachMsg } from "@/lib/planning-types";
 import { cn } from "@/lib/utils";
 
 const STARTERS = [
-  "Where did my money go last month?",
+  "Where is most of my money going?",
+  "Why did my expenses increase this month?",
+  "How can I save more?",
+  "What subscriptions am I paying for?",
+  "What happens if I reduce dining expenses?",
   "How are my budgets doing?",
   "Am I on track for my goals?",
-  "Which subscriptions cost me the most?",
-  "What if I cut dining by 30%?",
-  "How big should my emergency fund be?",
 ];
 
 const TOOL_LABEL: Record<string, string> = {

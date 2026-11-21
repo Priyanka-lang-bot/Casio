@@ -58,9 +58,9 @@ export async function apiUpload<T>(path: string, form: FormData): Promise<ApiRes
   return { ok: false, status: res.status, message, fields: {} };
 }
 
-export type User = { id: string; email: string; full_name: string };
+export type User = { id: string; email: string; full_name: string; is_demo?: boolean };
 
 // Only allow redirects to pages inside CASIO (blocks "?next=https://evil.com").
 export function safeNext(next: string | undefined | null): string {
-  return next && next.startsWith("/") && !next.startsWith("//") ? next : "/overview";
+  return next && next.startsWith("/") && !next.startsWith("//") ? next : "/wallet";
 }

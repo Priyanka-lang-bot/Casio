@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { DemoButton } from "@/components/demo-button";
 import { Alert, PasswordField, SubmitButton, TextField } from "@/components/form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -37,6 +38,10 @@ export function LoginForm({ next, justReset, justDeleted }: { next?: string; jus
 
   return (
     <>
+      <DemoButton />
+      <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground" aria-hidden="true">
+        <span className="h-px flex-1 bg-border" /> or log in to your account <span className="h-px flex-1 bg-border" />
+      </div>
       <h1 className="text-xl font-semibold">Log in</h1>
       <p className="mt-1 text-sm text-muted-foreground">Welcome back. Enter your details to continue.</p>
       <form onSubmit={onSubmit} noValidate className="mt-6 space-y-4">

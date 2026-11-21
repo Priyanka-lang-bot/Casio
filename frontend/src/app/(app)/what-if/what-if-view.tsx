@@ -44,13 +44,18 @@ function toChange(d: Draft): Change | null {
   return { type: d.type, amount: v, label: d.label || undefined };
 }
 
-export function WhatIfView() {
-  const [question, setQuestion] = useState("");
+export function WhatIfView({ initialQuestion }: { initialQuestion?: string }) {
+  const [question, setQuestion] = useState(initialQuestion ?? "");
   const [drafts, setDrafts] = useState<Draft[]>([{ ...NEW }]);
   const [cats, setCats] = useState<string[]>([]);
   const [result, setResult] = useState<SimResult | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Opened with a question (from a link, or the demo's ready-made scenario): run it straight away.
+  useEffect(() => {
+    if (initialQuestion) void ask(initialQuestion);
+  }, [initialQuestion]);
 
   useEffect(() => {
     api<Category[]>("/categories").then((r) => r.ok && setCats(r.data.filter((c) => c.kind === "expense").map((c) => c.name)));

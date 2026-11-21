@@ -36,7 +36,7 @@ export default function RegisterPage() {
     setBusy(true);
     const res = await api<User>("/auth/register", values);
     if (res.ok) {
-      router.replace("/overview");
+      router.replace("/wallet");
       router.refresh();
       return;
     }

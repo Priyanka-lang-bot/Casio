@@ -23,6 +23,8 @@ from app import ai, guardrails, nudges, planning
 from app.config import get_settings
 from app.finance import to_json
 from app.formatting import fmt_money
+from app.importers.normalize import privacy_scrub
+from app.learning import merchant_key
 from app.models import Category, FinancialGoal, RecurringPayment, Transaction, User
 
 log = logging.getLogger("casio.coach")
@@ -142,7 +144,7 @@ def month_summary(db: Session, user: User, month: str | None = None) -> dict:
     return {
         "basis": "actual", "month": f"{first:%Y-%m}", "income": inc, "spending": exp, "net": inc - exp,
         "spending_by_category": by_cat,
-        "largest_expenses": [{"date": t.occurred_on, "description": t.description[:80], "amount": t.amount,
+        "largest_expenses": [{"date": t.occurred_on, "description": privacy_scrub(t.description)[:80], "amount": t.amount,
                               "category": t.category.name if t.category else None} for t in biggest],
     }
 
@@ -182,7 +184,7 @@ def search_transactions(db: Session, user: User, text=None, category=None, month
     rows = db.scalars(q.order_by(Transaction.occurred_on.desc())).all()
     total = sum((t.amount for t in rows if t.type == "expense"), Decimal(0))
     return {"count": len(rows), "total_spent": total,
-            "transactions": [{"date": t.occurred_on, "description": t.description[:80], "type": t.type, "amount": t.amount,
+            "transactions": [{"date": t.occurred_on, "description": privacy_scrub(t.description)[:80], "type": t.type, "amount": t.amount,
                               "category": t.category.name if t.category else None} for t in rows[:25]]}
 
 
@@ -275,12 +277,18 @@ def _fallback_answer(db: Session, user: User, question: str, currency: str) -> t
     intro = "(AI is switched off, so this is CASIO's built-in helper answering from your data.)\n\n"
 
     changes = parse_what_if(question)
+    assumed = ""
+    if not changes and re.search(r"\b(what if|what happens|what would happen)\b", q) and re.search(rf"\b{_DOWN}\b|\b{_UP}\b", q):
+        # "What happens if I reduce dining?" has no amount: use 30% as a worked example, and say so.
+        changes = parse_what_if(question.rstrip(" ?.!") + " by 30%")
+        if changes:
+            assumed = "You didn't say by how much, so this uses 30% as an example.\n"
     if changes:
         r = planning.simulate(db, user, changes)
         if not r["has_data"]:
             return intro + "I need some data first. Import a statement or fill in your Financial Profile, then ask again.", ["run_what_if"]
         lines = r["explanation"] + ([*r["problems"]] if r["problems"] else [])
-        return intro + "\n".join(f"• {line}" for line in lines) + "\n\n" + r["disclaimer"], ["run_what_if"]
+        return intro + assumed + "\n".join(f"• {line}" for line in lines) + "\n\n" + r["disclaimer"], ["run_what_if"]
 
     if re.search(r"budget|over ?spend|limit", q):
         b = planning.budget_status(db, user, planning.month_start(dt.date.today()))
@@ -303,13 +311,42 @@ def _fallback_answer(db: Session, user: User, question: str, currency: str) -> t
             lines.append(s)
         return intro + "Your goals:\n" + "\n".join(lines), ["get_goals"]
 
+    if re.search(r"\b(increase|increased|went up|go up|gone up|higher|more than (last|usual)|jump|rise|rose)\b", q) and re.search(r"spend|spent|expens|cost", q):
+        return intro + _spending_change(db, user, currency), ["get_month_summary"]
+
+    if re.search(r"\bsave more\b|saving more|how (can|do|could) i save|spend less|cut (back|down)|save money", q):
+        return intro + _save_more(db, user, currency), ["get_money_model", "get_subscriptions", "run_what_if"]
+
+    if re.search(r"where .*(money|spend|spent)|most of my money|biggest (expense|spend|categor)|spend (the )?most", q):
+        usual = planning.usual_month(db, user, planning.latest_activity(db, user))
+        if usual["months"] and usual["expenses"] > 0:
+            cats = planning.category_names(db)
+            top = sorted(usual["by_category"].items(), key=lambda kv: -kv[1])[:4]
+            n = len(usual["months"])
+            lines = [f"• {cats[c].name if c in cats else 'Uncategorised'}: {m(a)} a month ({a / usual['expenses'] * 100:.0f}% of spending)" for c, a in top]
+            return intro + (
+                f"Over your last {n} full month{'s' if n != 1 else ''} you spent about {m(usual['expenses'])} a month "
+                f"out of {m(usual['income'])} income (averages of your actual transactions). Most of it goes to:\n" + "\n".join(lines)
+            ), ["get_money_model"]
+
     if re.search(r"subscri|recurring|netflix|spotify|prime", q):
         subs = subscriptions_summary(db, user)
         if not subs:
             return intro + "I haven't found any regular payments yet. They appear after a few months of transactions.", ["get_subscriptions"]
         total = sum((s["monthly_cost"] for s in subs), Decimal(0))
-        lines = [f"• {s['name']}: {m(s['amount'])} {s['frequency']}" for s in subs[:8]]
-        return intro + f"Your regular payments cost about {m(total)} a month:\n" + "\n".join(lines), ["get_subscriptions"]
+        lines = []
+        for s in subs[:10]:
+            line = f"• {s['name']} ({s['kind']}): {m(s['amount'])} {s['frequency']}"
+            if s["price_changes"]:
+                ch = s["price_changes"][-1]
+                line += f", changed from {m(Decimal(ch['old']))} to {m(Decimal(ch['new']))} on {dt.date.fromisoformat(ch['date']):%d %b}"
+            lines.append(line)
+        subs_only = [s for s in subs if s["kind"] == "subscription"]
+        extra = ""
+        if subs_only:
+            extra = (f"\n\nOf these, {len(subs_only)} are subscriptions costing {m(sum((s['monthly_cost'] for s in subs_only), Decimal(0)))} a month "
+                     f"({m(sum((s['yearly_cost'] for s in subs_only), Decimal(0)))} a year). Mark the ones you don't use in Subscriptions.")
+        return intro + f"Your regular payments (found from repeating transactions) cost about {m(total)} a month:\n" + "\n".join(lines) + extra, ["get_subscriptions"]
 
     s = month_summary(db, user)
     if s["income"] == 0 and s["spending"] == 0:
@@ -319,6 +356,76 @@ def _fallback_answer(db: Session, user: User, question: str, currency: str) -> t
             f"(from your transactions). Biggest categories: {top}.\n\n"
             "Try asking: “How are my budgets?”, “Am I on track for my goals?”, or “What if I cut dining by 30%?”")
     return intro + text, ["get_month_summary"]
+
+
+def _spending_change(db: Session, user: User, currency: str) -> str:
+    """Compare the latest full month with the month before, category by category."""
+    m = lambda v: fmt_money(v, currency)  # noqa: E731
+    latest = planning.latest_activity(db, user)
+    cur = planning.month_start(latest)
+    # A month still in progress isn't comparable with a whole month, so use the last full one.
+    if latest.month == dt.date.today().month and latest.year == dt.date.today().year:
+        cur = planning.add_months(cur, -1)
+    prev = planning.add_months(cur, -1)
+    _, cur_exp = planning.month_totals(db, user, cur)
+    _, prev_exp = planning.month_totals(db, user, prev)
+    if cur_exp == 0 or prev_exp == 0:
+        return "I need at least two full months of transactions to compare. Import an older statement and ask again."
+    cats = planning.category_names(db)
+    a = planning.category_spend(db, user, *planning.month_bounds(cur))
+    b = planning.category_spend(db, user, *planning.month_bounds(prev))
+    diffs = sorted(((cid, a.get(cid, Decimal(0)) - b.get(cid, Decimal(0))) for cid in set(a) | set(b)), key=lambda kv: -kv[1])
+    name = lambda cid: cats[cid].name if cid in cats else "Uncategorised"  # noqa: E731
+    change = cur_exp - prev_exp
+    head = (f"You spent {m(cur_exp)} in {cur:%B} and {m(prev_exp)} in {prev:%B}: "
+            f"{'up' if change > 0 else 'down'} {m(abs(change))} ({abs(change) / prev_exp * 100:.0f}%). Calculated from your transactions.\n")
+    ups = [f"• {name(c)}: +{m(d)}" for c, d in diffs if d > 0][:4]
+    downs = [f"• {name(c)}: −{m(-d)}" for c, d in reversed(diffs) if d < 0][:2]
+    big = db.scalars(select(Transaction).where(
+        Transaction.user_id == user.id, Transaction.type == "expense",
+        Transaction.occurred_on >= cur, Transaction.occurred_on < planning.add_months(cur, 1),
+    ).order_by(Transaction.amount.desc()).limit(8)).all()
+    regular = {r.merchant_key for r in db.scalars(select(RecurringPayment).where(RecurringPayment.user_id == user.id))}
+    unusual = [t for t in big if t.category and t.category.name in ("Shopping", "Healthcare", "Food and Dining", "Travel", "Entertainment")
+               and merchant_key(t.description, t.merchant) not in regular][:3]
+    text = head
+    if ups:
+        text += "\nWhat went up:\n" + "\n".join(ups)
+    if downs:
+        text += "\n\nWhat went down:\n" + "\n".join(downs)
+    if unusual:
+        text += "\n\nLarger one-off payments that month:\n" + "\n".join(f"• {t.occurred_on:%d %b} {t.merchant or t.description[:40]}: {m(t.amount)}" for t in unusual)
+    rises = [s for s in subscriptions_summary(db, user) if s["price_changes"] and Decimal(s["price_changes"][-1]["new"]) > Decimal(s["price_changes"][-1]["old"])]
+    for s in rises[:2]:
+        ch = s["price_changes"][-1]
+        text += f"\n\n{s['name']} also costs more now: {m(Decimal(ch['old']))} → {m(Decimal(ch['new']))}."
+    return text
+
+
+def _save_more(db: Session, user: User, currency: str) -> str:
+    """Concrete, calculated ideas: the biggest flexible categories, subscriptions to review, goal gaps."""
+    m = lambda v: fmt_money(v, currency)  # noqa: E731
+    usual = planning.usual_month(db, user, planning.latest_activity(db, user))
+    if not usual["months"]:
+        return "I need a full month of transactions first. Import a statement and ask again."
+    cats = planning.category_names(db)
+    flexible = ("Food and Dining", "Shopping", "Entertainment", "Groceries", "Transportation", "Travel")
+    ideas = []
+    for cid, amt in sorted(usual["by_category"].items(), key=lambda kv: -kv[1]):
+        if cid in cats and cats[cid].name in flexible and amt >= 500 and len(ideas) < 3:
+            cut = (amt * Decimal("0.2")).quantize(Decimal("1"))
+            ideas.append(f"• {cats[cid].name}: you usually spend {m(amt)} a month. Spending 20% less saves about {m(cut)} a month, {m(cut * 12)} a year.")
+    subs = [s for s in subscriptions_summary(db, user) if s["kind"] == "subscription" and s["usage"] in ("unknown", "rarely", "not_using")]
+    if subs:
+        names = ", ".join(f"{s['name']} ({m(s['amount'])})" for s in subs[:4])
+        ideas.append(f"• Check your subscriptions: {names}. Cancelling one you don't use saves its full yearly cost.")
+    surplus = usual["income"] - usual["expenses"]
+    text = (f"On average you earn {m(usual['income'])} and spend {m(usual['expenses'])} a month, so about {m(surplus)} is left "
+            f"(averages of your last {len(usual['months'])} full months of transactions).\n\nIdeas, with the numbers worked out:\n" + "\n".join(ideas))
+    behind = [g for g in goals_summary(db, user) if g["state"] == "behind" and g.get("needed_per_month")]
+    for g in behind[:1]:
+        text += f"\n\nYour goal “{g['name']}” needs about {m(g['needed_per_month'])} a month to finish on time; the savings above could close that gap."
+    return text + "\n\nTry the What-If Simulator to see the effect on your savings forecast."
 
 
 def answer(db: Session, user: User, question: str, history: list[dict], currency: str) -> dict:

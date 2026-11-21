@@ -64,3 +64,996 @@
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   }
 }
+
+/* ==========================================================================
+   App frame: top bar, demo banner, card switcher, page transitions
+   ========================================================================== */
+.skip-link {
+  position: absolute;
+  left: 0.75rem;
+  top: -3rem;
+  z-index: 100;
+  border-radius: 0.5rem;
+  background: var(--foreground);
+  color: var(--background);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+.skip-link:focus {
+  top: 0.75rem;
+}
+
+.app-bar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 3.5rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in oklab, var(--card) 82%, transparent);
+  backdrop-filter: blur(14px) saturate(1.4);
+}
+@media (min-width: 640px) {
+  .app-bar {
+    padding-inline: 1.5rem;
+  }
+}
+.app-bar-wallet {
+  border-bottom-color: transparent;
+  background: transparent;
+  backdrop-filter: none;
+  position: relative;
+}
+.app-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  font-size: 0.95rem;
+  color: var(--foreground);
+  border-radius: 0.5rem;
+}
+.app-logo-mark {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.55rem;
+  color: #fff;
+  font-size: 0.95rem;
+  letter-spacing: 0;
+  background: linear-gradient(140deg, #1d2b64, #3b6cf6 55%, #ff6fb5);
+  box-shadow: 0 6px 14px -6px rgb(29 43 100 / 0.7), inset 0 1px 0 rgb(255 255 255 / 0.35);
+}
+.current-chip {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 11rem;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 650;
+  background: linear-gradient(135deg, var(--c-from), var(--c-to));
+  box-shadow: 0 4px 12px -6px rgb(15 23 42 / 0.5);
+}
+.ink-light {
+  color: #fff;
+}
+.ink-dark {
+  color: #1b1f2a;
+}
+
+.demo-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+  padding: 0.45rem 1rem;
+  background: #12141a;
+  color: #e8eaf0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+.demo-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  color: #1b1f2a;
+  background: linear-gradient(135deg, #ffd36e, #ffb199);
+}
+.demo-text {
+  flex: 1 1 18rem;
+  color: #c7cbd6;
+}
+.demo-actions {
+  display: inline-flex;
+  gap: 0.4rem;
+}
+.demo-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgb(255 255 255 / 0.2);
+  padding: 0.2rem 0.55rem;
+  font-weight: 600;
+  color: #fff;
+}
+.demo-actions button:hover {
+  background: rgb(255 255 255 / 0.1);
+}
+.demo-actions button:focus-visible {
+  outline: 2px solid #ffd36e;
+  outline-offset: 2px;
+}
+.demo-actions button:disabled {
+  opacity: 0.6;
+}
+
+.switcher-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  z-index: 50;
+  width: min(92vw, 30rem);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--card);
+  padding: 0.75rem;
+  box-shadow: 0 24px 60px -20px rgb(15 23 42 / 0.45);
+  animation: pop-in 160ms ease-out;
+}
+.mini-card {
+  display: flex;
+  min-height: 4.25rem;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.35rem;
+  border-radius: 0.7rem;
+  padding: 0.6rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.2;
+  background: linear-gradient(140deg, var(--c-from), var(--c-to));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.3), 0 6px 14px -8px rgb(15 23 42 / 0.6);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.mini-card:hover {
+  transform: translateY(-2px);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.3), 0 12px 20px -10px rgb(15 23 42 / 0.6);
+}
+.mini-card:focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 2px;
+}
+.mini-card[aria-current="page"] {
+  outline: 2px solid var(--foreground);
+  outline-offset: 2px;
+}
+
+.user-menu {
+  position: relative;
+}
+.user-menu summary {
+  display: flex;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem 0.15rem 0.15rem;
+}
+.user-menu summary::-webkit-details-marker {
+  display: none;
+}
+.user-menu summary:hover {
+  background: var(--accent);
+}
+.user-menu summary:focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 2px;
+}
+.user-avatar {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #fff;
+  background: linear-gradient(140deg, #6c5ce7, #ff6fb5);
+}
+.user-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  z-index: 50;
+  width: 15rem;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: var(--card);
+  padding: 0.85rem;
+  box-shadow: 0 24px 60px -20px rgb(15 23 42 / 0.45);
+}
+
+.page-enter {
+  animation: page-enter 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+
+/* ==========================================================================
+   The card wallet (home screen)
+   ========================================================================== */
+.wallet-bg {
+  background:
+    radial-gradient(60rem 36rem at 70% 18%, #ffffff 0%, transparent 60%),
+    radial-gradient(50rem 40rem at 10% 90%, #e9ecf5 0%, transparent 60%),
+    linear-gradient(180deg, #eef0f4 0%, #e2e5eb 100%);
+}
+.wallet-page {
+  margin-inline: auto;
+  max-width: 78rem;
+  padding: 0.5rem 1rem 4rem;
+}
+@media (min-width: 640px) {
+  .wallet-page {
+    padding-inline: 1.5rem;
+  }
+}
+.wallet-hero {
+  display: grid;
+  gap: 1.5rem;
+  align-items: center;
+}
+@media (min-width: 1024px) {
+  .wallet-hero {
+    grid-template-columns: minmax(19rem, 25rem) 1fr;
+    gap: 2rem;
+    min-height: calc(100vh - 7rem);
+  }
+}
+.wallet-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  border: 1px solid rgb(29 43 100 / 0.12);
+  background: rgb(255 255 255 / 0.7);
+  padding: 0.25rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  color: #2a3a7a;
+}
+.wallet-title {
+  margin-top: 1rem;
+  font-size: clamp(2.1rem, 4.2vw, 3.4rem);
+  font-weight: 780;
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  color: #121521;
+}
+.wallet-title span {
+  background: linear-gradient(100deg, #1d2b64 0%, #3b6cf6 45%, #b0186b 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.wallet-lead {
+  margin-top: 1rem;
+  max-width: 26rem;
+  font-size: 0.98rem;
+  line-height: 1.55;
+  color: #4a5163;
+}
+.wallet-stats {
+  margin-top: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  border-radius: 1rem;
+  border: 1px solid rgb(255 255 255 / 0.9);
+  background: rgb(255 255 255 / 0.65);
+  padding: 0.85rem;
+  box-shadow: 0 20px 40px -28px rgb(15 23 42 / 0.5);
+}
+.wallet-stats dt {
+  font-size: 0.72rem;
+  color: #636b7e;
+}
+.wallet-stats dd {
+  margin-top: 0.15rem;
+  font-size: clamp(0.95rem, 1.6vw, 1.15rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #121521;
+}
+.wallet-stats dd.pos {
+  color: var(--success);
+}
+.wallet-stats dd.neg {
+  color: var(--destructive);
+}
+.wallet-stats-note {
+  grid-column: 1 / -1;
+  font-size: 0.7rem;
+  color: #7a8194;
+}
+.wallet-detail {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .wallet-detail {
+    display: block;
+    margin-top: 1.5rem;
+    min-height: 9.5rem;
+  }
+}
+.wallet-detail-label {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #121521;
+}
+.wallet-swatch {
+  width: 1.6rem;
+  height: 1.05rem;
+  border-radius: 0.3rem;
+  box-shadow: 0 4px 10px -4px rgb(15 23 42 / 0.6);
+}
+.wallet-detail-desc {
+  margin-top: 0.4rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #4a5163;
+}
+.wallet-open {
+  margin-top: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 0.7rem;
+  background: #121521;
+  padding: 0.6rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 650;
+  color: #fff;
+  box-shadow: 0 12px 24px -12px rgb(18 21 33 / 0.8);
+  transition: transform 160ms ease;
+}
+.wallet-open:hover {
+  transform: translateY(-1px);
+}
+.wallet-open:focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 3px;
+}
+
+/* --- 3D stage -------------------------------------------------------------- */
+.wallet-stage {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  --card-w: 11.25rem;
+  --card-h: 16.75rem;
+  --step: 2rem;
+  --pocket-w: 19rem;
+  --pocket-h: 13.25rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem 0 2.5rem;
+  perspective: 1600px;
+  perspective-origin: 50% 30%;
+}
+.wallet-3d {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2.5rem;
+  transform-style: preserve-3d;
+  transform: rotateX(calc(6deg + var(--tilt-x))) rotateY(var(--tilt-y));
+  transition: transform 500ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@media (min-width: 720px) {
+  .wallet-3d {
+    flex-direction: row;
+    gap: 2.25rem;
+  }
+  .pocket-left {
+    transform: rotateY(11deg);
+    transform-origin: 100% 50%;
+  }
+  .pocket-right {
+    transform: rotateY(-11deg);
+    transform-origin: 0% 50%;
+  }
+}
+.pocket {
+  position: relative;
+  width: var(--pocket-w);
+  height: calc(var(--card-h) + 6 * var(--step) + 3.5rem);
+  transform-style: preserve-3d;
+}
+.pocket-cards {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+/* In 3D, the transparent containers sit in front of the cards that lean back,
+   so only the cards themselves take clicks. */
+.wallet-3d,
+.pocket,
+.pocket-cards,
+.pocket-slot {
+  pointer-events: none;
+}
+.wallet-card {
+  pointer-events: auto;
+}
+.pocket-slot {
+  position: absolute;
+  left: 50%;
+  bottom: 1rem;
+  width: var(--card-w);
+  height: var(--card-h);
+  margin-left: calc(var(--card-w) / -2);
+  transform-style: preserve-3d;
+  transform: translate3d(calc((var(--d) - 3) * 0.6rem), calc(var(--d) * var(--step) * -1), calc(var(--d) * -14px))
+    rotate(calc((var(--d) - 3) * 1.7deg));
+}
+.wallet-card {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: 1rem;
+  transform-style: preserve-3d;
+  transition:
+    transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 300ms ease,
+    opacity 260ms ease;
+  animation: card-rise 760ms cubic-bezier(0.18, 0.9, 0.24, 1.08) both;
+  animation-delay: calc(var(--o) * 45ms + 120ms);
+  -webkit-tap-highlight-color: transparent;
+}
+.wallet-card:hover,
+.wallet-card:focus-visible {
+  /* rises out of the pocket but stays behind the cards in front of it */
+  transform: translate3d(0, -3rem, 6px) rotate(calc((var(--d) - 3) * -1.2deg));
+}
+.wallet-card:focus-visible {
+  outline: none;
+}
+.wallet-card:focus-visible .card-face {
+  box-shadow:
+    0 0 0 3px #fff,
+    0 0 0 6px #3b6cf6,
+    0 26px 40px -16px rgb(15 23 42 / 0.55);
+}
+.wallet-stage.is-opening .wallet-card:not(.is-open) {
+  filter: saturate(0.5) brightness(0.96);
+}
+.wallet-card.is-open {
+  transform: translate3d(0, -15rem, 90px) scale(1.08);
+  opacity: 0;
+  transition:
+    transform 340ms cubic-bezier(0.55, 0, 0.75, 0.2),
+    opacity 240ms ease 110ms;
+}
+@keyframes card-rise {
+  from {
+    translate: 0 15rem;
+  }
+  to {
+    translate: 0 0;
+  }
+}
+
+.pocket-front {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--pocket-h);
+  transform: translateZ(46px);
+  border-radius: 1.4rem 1.4rem 1.7rem 1.7rem;
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.22 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
+    radial-gradient(120% 80% at 30% 0%, #b9bec6 0%, transparent 70%),
+    linear-gradient(180deg, #a3a8b0 0%, #8a9098 55%, #7b8189 100%);
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 0.45),
+    inset 0 -18px 30px rgb(0 0 0 / 0.18),
+    0 26px 40px -22px rgb(20 24 32 / 0.65),
+    0 2px 0 rgb(0 0 0 / 0.08);
+  pointer-events: none;
+}
+.pocket-front::before {
+  content: "";
+  position: absolute;
+  inset: 0.6rem;
+  border-radius: 1rem 1rem 1.25rem 1.25rem;
+  border: 1.5px dashed rgb(255 255 255 / 0.32);
+}
+.pocket-band {
+  position: absolute;
+  left: -0.3rem;
+  right: -0.3rem;
+  top: 2.6rem;
+  height: 1.15rem;
+  border-radius: 0.35rem;
+  background:
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.08) 0 2px, transparent 2px 5px),
+    linear-gradient(180deg, #d7dade, #b9bdc3);
+  box-shadow: 0 3px 6px -2px rgb(0 0 0 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.6);
+}
+.pocket-title {
+  position: absolute;
+  left: 1.4rem;
+  bottom: 2.6rem;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgb(30 33 40 / 0.85);
+  text-shadow: 0 1px 0 rgb(255 255 255 / 0.35);
+}
+.pocket-sub {
+  position: absolute;
+  left: 1.4rem;
+  bottom: 1.45rem;
+  font-size: 0.72rem;
+  color: rgb(30 33 40 / 0.78);
+  text-shadow: 0 1px 0 rgb(255 255 255 / 0.3);
+}
+.pocket-badge {
+  position: absolute;
+  right: 1.3rem;
+  bottom: 1.35rem;
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: #f5f6f8;
+  background: radial-gradient(circle at 35% 30%, #4a4f59, #22252b);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.25), 0 3px 8px -2px rgb(0 0 0 / 0.45);
+}
+.pocket-badge-alt {
+  background: radial-gradient(circle at 35% 30%, #f2f3f5, #c3c7cd);
+  color: #2a2e36;
+}
+.wallet-shadow {
+  width: min(42rem, 92%);
+  height: 2.2rem;
+  margin-top: -0.5rem;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(20 24 32 / 0.35), transparent);
+  filter: blur(6px);
+}
+.wallet-hint {
+  margin-top: 0.75rem;
+  display: none;
+  font-size: 0.75rem;
+  color: #6a7184;
+}
+@media (min-width: 1024px) {
+  .wallet-hint {
+    display: block;
+  }
+}
+.wallet-hint kbd {
+  border-radius: 0.3rem;
+  border: 1px solid #c9ced8;
+  background: #fff;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.7rem;
+  font-family: inherit;
+}
+.wallet-coin {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  pointer-events: none;
+  animation: coin-float 6s ease-in-out infinite alternate;
+}
+.coin-a {
+  top: 0.5rem;
+  right: 12%;
+  width: 2.6rem;
+  height: 2.6rem;
+  font-weight: 800;
+  color: #7a5200;
+  background: radial-gradient(circle at 35% 30%, #fff1b8, #f2b630 60%, #c98a06);
+  box-shadow: 0 10px 18px -8px rgb(150 100 0 / 0.6), inset 0 -3px 0 rgb(0 0 0 / 0.12);
+}
+.coin-b {
+  top: 38%;
+  left: 2%;
+  width: 1.9rem;
+  height: 1.9rem;
+  background: radial-gradient(circle at 35% 30%, #d6efff, #6fb6f2 70%);
+  box-shadow: 0 10px 16px -8px rgb(30 90 160 / 0.6);
+  animation-duration: 7.5s;
+  animation-delay: -2s;
+}
+.coin-c {
+  bottom: 18%;
+  right: 3%;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 40% 60% 55% 45%;
+  background: radial-gradient(circle at 35% 30%, #ffd1e6, #ff5fa8 70%);
+  box-shadow: 0 10px 16px -8px rgb(180 30 100 / 0.6);
+  animation-duration: 5.5s;
+  animation-delay: -1s;
+}
+@media (max-width: 719px) {
+  .coin-b,
+  .coin-c {
+    display: none;
+  }
+}
+@keyframes coin-float {
+  from {
+    transform: translateY(0) rotate(0deg);
+  }
+  to {
+    transform: translateY(-14px) rotate(18deg);
+  }
+}
+
+/* --- Card faces ------------------------------------------------------------ */
+.card-face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 1rem;
+  background: linear-gradient(155deg, var(--c-from), var(--c-to));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.4),
+    inset 0 0 0 1px rgb(255 255 255 / 0.12),
+    0 18px 30px -14px rgb(15 23 42 / 0.55),
+    0 3px 8px -3px rgb(15 23 42 / 0.3);
+  transition: box-shadow 300ms ease;
+}
+.wallet-card:hover .card-face {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.45),
+    inset 0 0 0 1px rgb(255 255 255 / 0.14),
+    0 30px 44px -16px rgb(15 23 42 / 0.6),
+    0 6px 12px -4px rgb(15 23 42 / 0.3);
+}
+.card-art {
+  position: absolute;
+  inset: 0;
+  opacity: 0.9;
+}
+.card-sheen {
+  position: absolute;
+  inset: -40% -60%;
+  background: linear-gradient(115deg, transparent 38%, rgb(255 255 255 / 0.28) 48%, transparent 58%);
+  transform: translateX(-30%);
+  transition: transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
+}
+.wallet-card:hover .card-sheen,
+.wallet-card:focus-visible .card-sheen {
+  transform: translateX(30%);
+}
+.card-band {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: var(--step, 1.875rem);
+  padding: 0 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.card-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.22);
+}
+.ink-dark .card-icon {
+  background: rgb(255 255 255 / 0.55);
+}
+.card-icon svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+.card-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.card-no {
+  margin-left: auto;
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
+}
+.card-body {
+  position: absolute;
+  inset: 2.6rem 0.85rem 0.8rem;
+}
+.card-chip {
+  width: 2rem;
+  height: 1.5rem;
+  border-radius: 0.35rem;
+  background:
+    linear-gradient(90deg, transparent 45%, rgb(0 0 0 / 0.18) 45% 55%, transparent 55%),
+    linear-gradient(0deg, transparent 30%, rgb(0 0 0 / 0.15) 30% 36%, transparent 36% 64%, rgb(0 0 0 / 0.15) 64% 70%, transparent 70%),
+    linear-gradient(135deg, #fff3c4, #e2b44b 55%, #b98a2a);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12);
+}
+.card-desc {
+  margin-top: 0.7rem;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  opacity: 0.92;
+}
+.card-foot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+.card-brand {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+}
+.card-dots {
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Abstract artwork, one pattern per card */
+.motif-rings .card-art {
+  background:
+    repeating-radial-gradient(circle at 92% 88%, transparent 0 13px, rgb(255 255 255 / 0.16) 14px 16px),
+    radial-gradient(circle at 92% 88%, color-mix(in oklab, var(--c-accent) 55%, transparent) 0 24px, transparent 25px);
+}
+.motif-waves .card-art {
+  background:
+    radial-gradient(140% 55% at 0% 105%, color-mix(in oklab, var(--c-accent) 70%, transparent) 0 42%, transparent 43%),
+    radial-gradient(110% 45% at 100% 95%, rgb(255 255 255 / 0.32) 0 40%, transparent 41%),
+    radial-gradient(90% 35% at 40% 80%, rgb(255 255 255 / 0.18) 0 40%, transparent 41%);
+}
+.motif-orbs .card-art {
+  background:
+    radial-gradient(circle at 78% 66%, color-mix(in oklab, var(--c-accent) 70%, transparent) 0 19%, transparent 19.5%),
+    radial-gradient(circle at 28% 88%, rgb(255 255 255 / 0.35) 0 11%, transparent 11.5%),
+    radial-gradient(circle at 92% 34%, rgb(255 255 255 / 0.22) 0 8%, transparent 8.5%);
+}
+.motif-stripes .card-art {
+  background:
+    repeating-linear-gradient(118deg, transparent 0 16px, rgb(255 255 255 / 0.14) 16px 28px),
+    radial-gradient(circle at 85% 85%, color-mix(in oklab, var(--c-accent) 45%, transparent) 0 28%, transparent 29%);
+  -webkit-mask-image: linear-gradient(170deg, transparent 25%, #000 70%);
+  mask-image: linear-gradient(170deg, transparent 25%, #000 70%);
+}
+.motif-grid .card-art {
+  background:
+    linear-gradient(rgb(255 255 255 / 0.2) 1px, transparent 1px) 0 0 / 14px 14px,
+    linear-gradient(90deg, rgb(255 255 255 / 0.2) 1px, transparent 1px) 0 0 / 14px 14px,
+    radial-gradient(circle at 80% 80%, color-mix(in oklab, var(--c-accent) 60%, transparent) 0 22%, transparent 23%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 30%, #000 85%);
+  mask-image: linear-gradient(180deg, transparent 30%, #000 85%);
+}
+.motif-petals .card-art {
+  background:
+    radial-gradient(circle at 74% 64%, color-mix(in oklab, var(--c-accent) 75%, transparent) 0 11%, transparent 11.5%),
+    radial-gradient(circle at 86% 74%, color-mix(in oklab, var(--c-accent) 75%, transparent) 0 11%, transparent 11.5%),
+    radial-gradient(circle at 74% 84%, color-mix(in oklab, var(--c-accent) 75%, transparent) 0 11%, transparent 11.5%),
+    radial-gradient(circle at 62% 74%, color-mix(in oklab, var(--c-accent) 75%, transparent) 0 11%, transparent 11.5%),
+    radial-gradient(circle at 74% 74%, rgb(255 255 255 / 0.5) 0 5%, transparent 5.5%);
+}
+
+/* --- Sections below the wallet ------------------------------------------- */
+.wallet-helps,
+.wallet-privacy {
+  margin-top: 3rem;
+}
+.wallet-helps h2,
+.wallet-privacy h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.35rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: #121521;
+}
+.wallet-helps ul {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+@media (min-width: 640px) {
+  .wallet-helps ul {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .wallet-helps ul {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.wallet-helps a {
+  display: block;
+  height: 100%;
+  border-radius: 1rem;
+  border: 1px solid rgb(255 255 255 / 0.9);
+  background: rgb(255 255 255 / 0.6);
+  padding: 1rem;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.wallet-helps a:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px -22px rgb(15 23 42 / 0.6);
+}
+.wallet-helps a:focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 2px;
+}
+.helps-problem {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #b0186b;
+}
+.helps-answer {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: #2b3142;
+}
+.wallet-privacy ul {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.6rem;
+  border-radius: 1rem;
+  background: #12141a;
+  padding: 1.1rem 1.2rem;
+  color: #d6dae4;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+.wallet-privacy li {
+  display: flex;
+  gap: 0.6rem;
+}
+.wallet-privacy li svg {
+  margin-top: 0.15rem;
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  color: #7fffd4;
+}
+
+/* --- Login: the demo entry --------------------------------------------- */
+.demo-cta {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.85rem;
+  overflow: hidden;
+  border-radius: 1rem;
+  padding: 0.95rem 1rem;
+  text-align: left;
+  color: #fff;
+  background: linear-gradient(120deg, #1d2b64 0%, #3b6cf6 55%, #b0186b 100%);
+  box-shadow: 0 18px 34px -18px rgb(29 43 100 / 0.9), inset 0 1px 0 rgb(255 255 255 / 0.3);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+.demo-cta:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 24px 40px -18px rgb(29 43 100 / 0.95), inset 0 1px 0 rgb(255 255 255 / 0.3);
+}
+.demo-cta:focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 3px;
+}
+.demo-cta:disabled {
+  opacity: 0.85;
+  cursor: progress;
+}
+.demo-cta-cards {
+  position: relative;
+  width: 3.1rem;
+  height: 2.4rem;
+  flex-shrink: 0;
+}
+.demo-cta-cards span {
+  position: absolute;
+  inset: 0;
+  border-radius: 0.4rem;
+  box-shadow: 0 4px 8px -3px rgb(0 0 0 / 0.5);
+}
+.demo-cta-cards span:nth-child(1) {
+  background: linear-gradient(135deg, #ff7a6b, #ffb199);
+  transform: rotate(-14deg) translateX(-4px);
+}
+.demo-cta-cards span:nth-child(2) {
+  background: linear-gradient(135deg, #0f9b8e, #7ee8c7);
+  transform: rotate(-2deg);
+}
+.demo-cta-cards span:nth-child(3) {
+  background: linear-gradient(135deg, #f7b733, #ffe08a);
+  transform: rotate(11deg) translateX(5px);
+}
+
+/* --- Reduced motion: no tilt, no flying cards, no floating coins ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .wallet-card,
+  .wallet-coin,
+  .page-enter,
+  .switcher-panel {
+    animation: none !important;
+  }
+  .wallet-3d,
+  .wallet-card,
+  .card-sheen,
+  .mini-card,
+  .wallet-helps a,
+  .demo-cta {
+    transition: none !important;
+  }
+  .wallet-3d {
+    transform: rotateX(4deg) !important;
+  }
+  .wallet-card.is-open {
+    opacity: 1;
+  }
+}
