@@ -67,8 +67,8 @@ Browser ──► Next.js (frontend/, port 3000)
 |---|---|---|---|
 | 1 | PDF / CSV / SMS ingestion | ✅ `app/importers/`, Import Statements page | 2 |
 | 2 | Automatic categorisation | ✅ keyword rules + optional AI (`app/ai.py`), confidence and reason on every row | 2 |
-| 3 | Learning correction loop | `categorization_rules` table, "apply to similar?" prompt, undo | 3 |
-| 4 | Recurring payments & subscriptions | detection job over transactions, Subscriptions page | 3 |
+| 3 | Learning correction loop | ✅ `app/learning.py`, Learned Rules page, "Remember this?" dialog | 3 |
+| 4 | Recurring payments & subscriptions | ✅ `app/recurring.py`, Subscriptions page, alerts on Overview | 3 |
 | 5 | Persistent financial profile | ✅ Financial Profile (Phase 1); grows into Money Model with snapshots | 1 → 4 |
 | 6 | Goals + what-if simulator | goals, goal_contributions, scenarios; deterministic simulator in `finance.py` | 4 |
 | 7 | Proactive nudges | nudges table + checks after each import/transaction | 5 |
@@ -80,7 +80,6 @@ Browser ──► Next.js (frontend/, port 3000)
 Creating tables only when their feature is built keeps each migration small
 and avoids guessing at columns.
 
-- Phase 3: `categorization_rules`, `recurring_payments`, `subscriptions`
 - Phase 4: `budgets`, `financial_goals`, `goal_contributions`, `financial_snapshots`, `forecasts`, `financial_scenarios`
 - Phase 5: `financial_nudges`, `monthly_reports`, `ai_conversations`, `ai_insights`
 
@@ -115,3 +114,37 @@ account an import belongs to.
 - shadcn/ui components were added by hand (`src/components/ui/`) because the
   shadcn download site was blocked from the build machine; they are the
   standard shadcn source and work with `npx shadcn add` later.
+
+## 8. Phase 3 status: Learned Rules and Subscriptions (done and tested)
+
+### Adaptive learning (`backend/app/learning.py`)
+
+| Item | Status |
+|---|---|
+| Every category change saved as a correction (`category_corrections`), with no rule made automatically | ✅ |
+| "Remember this for next time?" after a change, on Transactions and on the import review screen | ✅ |
+| Preview before saving: how many earlier transactions would change (with examples), rows in this import, conflicts | ✅ |
+| Recommendation from history: "you've made this change 2 times" → suggests a rule; mixed history → suggests one-off | ✅ |
+| Shop-name rules and "description contains" rules; generic words like "UPI" refused | ✅ |
+| Priority (high / normal / low), then the more specific rule wins; overlapping rules shown on the Rules page | ✅ |
+| Same match with a new category replaces the old rule (warned first) | ✅ |
+| Confidence ("% reliable") drops when the user keeps changing what a rule picked; weak rules flagged | ✅ |
+| Rules run before keyword rules and AI, on imports and new transactions; marked "Your rule" with the reason | ✅ |
+| Undo / remove / pause: transactions go back exactly to their earlier category (`rule_applications`) | ✅ |
+| Categories the user picked by hand are never changed by a rule | ✅ |
+
+### Recurring payments (`backend/app/recurring.py`)
+
+| Item | Status |
+|---|---|
+| Weekly, fortnightly, monthly, quarterly, yearly, from gaps between payments to the same shop | ✅ |
+| Steady amounts required, except bills (electricity etc.); random spending (food orders) ignored | ✅ |
+| Shops that mix a subscription with one-off buys are checked by amount | ✅ |
+| Next payment (labelled Forecast), yearly cost, price history, "why CASIO thinks this repeats" | ✅ |
+| Alerts: new, price up/down, unusual bill, missed payment, charged after you cancelled, "do you still use it?" | ✅ |
+| Usage is asked, never assumed; "You could save" only counts services the user said they don't use | ✅ |
+| Mark as cancelled / not a regular payment (remembered), rename | ✅ |
+| Judged against the latest imported transaction, so an old statement doesn't look "missed" | ✅ |
+| Tests | 86 backend tests (21 new) + 25-check browser test |
+
+Demo data: `docs/samples/sample-6-months.csv` (June to November 2026).

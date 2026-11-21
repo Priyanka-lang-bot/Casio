@@ -81,12 +81,22 @@ def _fits(cat: Category, tx_type: str | None) -> bool:
 
 def categorise(db: Session, user: User, rows: list[ImportRow]) -> str:
     """Fill in category, confidence and reason for each row. Returns the AI
-    status for the batch."""
+    status for the batch.
+
+    Order: the user's own learned rules first (they always win), then
+    CASIO's keyword rules, then AI for anything still uncertain."""
+    from app.learning import active_rules, apply_to, resolve
+
+    rules = active_rules(db, user)
     cats = _categories(db, user)
     by_name = {c.name: c for c in cats if c.user_id is None}
     by_name.update({c.name: c for c in cats if c.user_id is not None})  # custom wins on name clash
     ask: list[dict] = []
     for i, row in enumerate(rows):
+        rule = resolve(rules, row.description, row.merchant, row.type) if rules else None
+        if rule:
+            apply_to(row, rule)
+            continue
         g = keyword_guess(row.description, row.merchant, row.type)
         cat = by_name.get(g.category)
         if cat and _fits(cat, row.type):
@@ -202,6 +212,13 @@ def start_import(db: Session, user: User, source: str, filename: str | None, con
     if rows:
         batch.rows_duplicate = mark_duplicates(db, user, rows)
         batch.ai_status = categorise(db, user, rows)
+        by_rule = [r for r in rows if r.category_source == "rule"]
+        if by_rule:
+            n_rules = len({r.rule_id for r in by_rule})
+            warnings.append(
+                f"Your learned rules categorised {len(by_rule)} row{'s' if len(by_rule) != 1 else ''} "
+                f"({n_rules} rule{'s' if n_rules != 1 else ''} used). They're marked “Your rule”."
+            )
         db.add_all(rows)
         batch.status = "needs_review"
     else:

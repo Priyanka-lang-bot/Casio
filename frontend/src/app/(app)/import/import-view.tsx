@@ -181,6 +181,7 @@ export function ImportView() {
       <p className="text-muted-foreground mt-3 text-sm">
         No statement handy? Try a sample:{" "}
         <a className="text-primary hover:underline" href="/samples/sample-statement.csv" download>CSV</a>{" · "}
+        <a className="text-primary hover:underline" href="/samples/sample-6-months.csv" download>6-month CSV (finds subscriptions)</a>{" · "}
         <a className="text-primary hover:underline" href="/samples/sample-statement.pdf" download>PDF</a>{" · "}
         <a className="text-primary hover:underline" href="/samples/sample-sms.txt" download>SMS</a>{" · "}
         <a className="text-primary hover:underline" href="/samples/sample-scanned.pdf" download>scanned PDF</a>

@@ -18,7 +18,7 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   categories: Category[];
   editing: Transaction | null;
-  onSaved: () => void;
+  onSaved: (saved?: Transaction) => void;
 };
 
 export function TransactionDialog({ open, onOpenChange, categories, editing, onSaved }: Props) {
@@ -30,7 +30,7 @@ export function TransactionDialog({ open, onOpenChange, categories, editing, onS
           <DialogDescription>Record money that came in or went out.</DialogDescription>
         </DialogHeader>
         {/* The form only exists while the dialog is open, so it starts fresh every time. */}
-        <TransactionForm categories={categories} editing={editing} onCancel={() => onOpenChange(false)} onSaved={() => { onOpenChange(false); onSaved(); }} />
+        <TransactionForm categories={categories} editing={editing} onCancel={() => onOpenChange(false)} onSaved={(t) => { onOpenChange(false); onSaved(t); }} />
       </DialogContent>
     </Dialog>
   );
@@ -45,7 +45,7 @@ function TransactionForm({
   categories: Category[];
   editing: Transaction | null;
   onCancel: () => void;
-  onSaved: () => void;
+  onSaved: (saved?: Transaction) => void;
 }) {
   const [type, setType] = useState<"income" | "expense">(editing?.type === "income" ? "income" : "expense");
   const [busy, setBusy] = useState(false);
@@ -70,10 +70,10 @@ function TransactionForm({
     setError("");
     setFields({});
     const res = editing
-      ? await api(`/transactions/${editing.id}`, body, "PUT")
-      : await api("/transactions", body);
+      ? await api<Transaction>(`/transactions/${editing.id}`, body, "PUT")
+      : await api<Transaction>("/transactions", body);
     setBusy(false);
-    if (res.ok) onSaved();
+    if (res.ok) onSaved(res.data);
     else {
       setError(res.message);
       setFields(res.fields);

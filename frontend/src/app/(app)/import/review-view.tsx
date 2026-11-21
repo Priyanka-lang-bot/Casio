@@ -3,15 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeftIcon, CheckCircle2Icon, ChevronDownIcon, SparklesIcon } from "lucide-react";
+import { ArrowLeftIcon, CheckCircle2Icon, ChevronDownIcon, SparklesIcon, WandSparklesIcon } from "lucide-react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Alert } from "@/components/form";
+import { LearnDialog, type LearnResult, type LearnTarget } from "@/components/learn-dialog";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { api } from "@/lib/api";
@@ -22,10 +22,6 @@ type Filter = "all" | "fix" | "check" | "dupes";
 type Patch = Partial<Pick<ImportRow, "occurred_on" | "description" | "amount" | "type" | "category_id" | "include">> & {
   apply_to_similar?: boolean;
 };
-
-// Same idea as the backend's normalise_description: "SWIGGY ORDER 4589" -> "swiggy order"
-const similarKey = (r: ImportRow) =>
-  (r.merchant ?? r.description).toLowerCase().replace(/\d{3,}/g, " ").replace(/[^a-z0-9& ]/g, " ").split(/\s+/).filter(Boolean).join(" ");
 
 const AI_NOTE: Record<string, { kind: "info" | "error"; text: string } | null> = {
   used: { kind: "info", text: "AI suggested categories for the descriptions CASIO's own rules weren't sure about. Only the description text was shared, never names, account numbers or amounts." },
@@ -44,7 +40,8 @@ export function ReviewView({ batchId }: { batchId: string }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState<ImportBatch | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
-  const [similarAsk, setSimilarAsk] = useState<{ row: ImportRow; categoryId: string; count: number } | null>(null);
+  const [learn, setLearn] = useState<LearnTarget | null>(null);
+  const [ruleNote, setRuleNote] = useState("");
   const [showErrors, setShowErrors] = useState(false);
 
   useEffect(() => {
@@ -81,11 +78,30 @@ export function ReviewView({ batchId }: { batchId: string }) {
     return true;
   }
 
-  function changeCategory(row: ImportRow, categoryId: string) {
-    const key = similarKey(row);
-    const count = rows.filter((o) => o.id !== row.id && o.type === row.type && o.category_source !== "user" && similarKey(o) === key).length;
-    if (categoryId && count > 0) setSimilarAsk({ row, categoryId, count });
-    else patch(row, { category_id: categoryId || null });
+  // Save the new category on this row, then ask whether CASIO should reuse it.
+  async function changeCategory(row: ImportRow, categoryId: string) {
+    const ok = await patch(row, { category_id: categoryId || null });
+    if (ok && categoryId)
+      setLearn({ kind: "import_row", id: row.id, description: row.description, categoryId, fromCategory: row.category_name });
+  }
+
+  async function learned(result: LearnResult) {
+    const target = learn;
+    setLearn(null);
+    if (!target) return;
+    if (result.choice === "similar") {
+      const row = rows.find((r) => r.id === target.id);
+      if (row) await patch(row, { category_id: target.categoryId, apply_to_similar: true });
+    } else if (result.choice === "rule") {
+      const s = result.saved;
+      setRuleNote(
+        `Rule made: “${s.rule.pattern}” → ${s.rule.category_name}. ${s.changed_import_rows} other row${s.changed_import_rows === 1 ? "" : "s"} here` +
+          (s.changed_transactions ? ` and ${s.changed_transactions} saved transaction${s.changed_transactions === 1 ? "" : "s"}` : "") +
+          " now use it. Manage it under Learned Rules.",
+      );
+      const r = await api<ImportDetail>(`/imports/${batchId}`);
+      if (r.ok) setBatch(r.data);
+    }
   }
 
   async function bulk(include: boolean, which: "all" | "duplicates" | "ready") {
@@ -157,6 +173,11 @@ export function ReviewView({ batchId }: { batchId: string }) {
         {aiNote && (
           <Alert kind={aiNote.kind}>
             <span className="inline-flex items-start gap-1.5">{batch.ai_status === "used" && <SparklesIcon className="mt-0.5 size-4 shrink-0" />}{aiNote.text}</span>
+          </Alert>
+        )}
+        {ruleNote && (
+          <Alert kind="success">
+            <span className="inline-flex items-start gap-1.5"><WandSparklesIcon className="mt-0.5 size-4 shrink-0" />{ruleNote}</span>
           </Alert>
         )}
         {(batch.warnings ?? []).map((w) => (
@@ -249,36 +270,7 @@ export function ReviewView({ batchId }: { batchId: string }) {
         </div>
       )}
 
-      <Dialog open={similarAsk !== null} onOpenChange={(o) => !o && setSimilarAsk(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Change similar rows too?</DialogTitle>
-            <DialogDescription>
-              {similarAsk &&
-                `${similarAsk.count} other ${similarAsk.count === 1 ? "row" : "rows"} in this file look${similarAsk.count === 1 ? "s" : ""} like “${similarAsk.row.merchant ?? similarAsk.row.description}”. Use “${categories.find((c) => c.id === similarAsk.categoryId)?.name}” for ${similarAsk.count === 1 ? "it" : "them"} as well? Rows you already changed yourself won't be touched.`}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (similarAsk) patch(similarAsk.row, { category_id: similarAsk.categoryId });
-                setSimilarAsk(null);
-              }}
-            >
-              Just this one
-            </Button>
-            <Button
-              onClick={() => {
-                if (similarAsk) patch(similarAsk.row, { category_id: similarAsk.categoryId, apply_to_similar: true });
-                setSimilarAsk(null);
-              }}
-            >
-              Change all {similarAsk ? similarAsk.count + 1 : ""}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <LearnDialog target={learn} onClose={learned} />
 
       <ConfirmDialog
         open={cancelOpen}
@@ -315,8 +307,14 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: "ba
 function ConfidenceBadge({ row }: { row: ImportRow }) {
   if (!row.category_id) return <Badge variant="warning">Please choose</Badge>;
   if (row.category_source === "user") return <Badge variant="secondary">You chose</Badge>;
+  if (row.category_source === "rule")
+    return (
+      <Badge variant="success" title={row.category_reason ?? undefined}>
+        <WandSparklesIcon className="size-3" /> Your rule · {Math.round((row.category_confidence ?? 0) * 100)}%
+      </Badge>
+    );
   const pct = Math.round((row.category_confidence ?? 0) * 100);
-  const who = row.category_source === "ai" ? "AI" : "Rule";
+  const who = row.category_source === "ai" ? "AI" : "Auto";
   if (row.needs_check) return <Badge variant="warning" title={row.category_reason ?? undefined}>{who} · {pct}% · Please check</Badge>;
   return (
     <Badge variant={pct >= 80 ? "success" : "secondary"} title={row.category_reason ?? undefined}>

@@ -48,9 +48,11 @@ const check = (ok, msg) => { if (ok) { pass++; console.log('ok  ', msg); } else 
   // Change Swiggy category -> dialog -> change all
   const swiggy = page.locator('li', { has: page.locator('input[value*="SWIGGY"]') }).first();
   await swiggy.getByLabel('Category').selectOption({ label: 'Groceries' });
-  await page.getByText('Change similar rows too?').waitFor();
+  // Phase 3: the "Remember this?" dialog replaced "Change similar rows too?"
+  await page.getByText('Remember this for next time?').waitFor();
   await page.screenshot({ path: S + '03-similar-dialog.png' });
-  await page.getByRole('button', { name: /Change all 2/ }).click();
+  await page.getByRole('radio', { name: /Only similar rows in this file \(1\)/ }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Done' }).click();
   await page.waitForTimeout(800);
   check((await page.getByText('You chose').count()) === 2, 'both Swiggy rows changed');
 

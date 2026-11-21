@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from app.routers import auth, imports, overview, profile, transactions
+from app.routers import auth, imports, overview, profile, rules, subscriptions, transactions
 
 app = FastAPI(title="CASIO API", version="0.1.0")
 
@@ -25,7 +25,7 @@ async def friendly_validation_errors(request: Request, exc: RequestValidationErr
     return JSONResponse(status_code=422, content={"detail": "Please check the highlighted fields.", "fields": fields})
 
 
-for r in (auth.router, profile.router, transactions.router, overview.router, imports.router):
+for r in (auth.router, profile.router, transactions.router, overview.router, imports.router, rules.router, subscriptions.router):
     app.include_router(r, prefix="/api")
 
 

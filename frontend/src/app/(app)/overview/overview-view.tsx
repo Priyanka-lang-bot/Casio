@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowDownIcon, ArrowUpIcon, PlusIcon, UserRoundIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, BellIcon, PlusIcon, UserRoundIcon } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { BasisBadge } from "@/components/basis-badge";
 import { Alert } from "@/components/form";
@@ -12,7 +12,7 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { formatDate, formatMoney, formatMonth } from "@/lib/format";
-import type { Overview } from "@/lib/types";
+import type { Overview, RecurringAlert } from "@/lib/types";
 
 function Metric({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "good" | "bad" }) {
   return (
@@ -32,6 +32,11 @@ export function OverviewView({ firstName }: { firstName: string }) {
   const [month, setMonth] = useState("");
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState("");
+  const [alerts, setAlerts] = useState<RecurringAlert[]>([]);
+
+  useEffect(() => {
+    api<RecurringAlert[]>("/subscriptions/alerts?limit=3").then((r) => r.ok && setAlerts(r.data));
+  }, []);
 
   useEffect(() => {
     api<Overview>(`/overview${month ? `?month=${month}` : ""}`).then((r) => {
@@ -86,6 +91,20 @@ export function OverviewView({ firstName }: { firstName: string }) {
                 </Link>
               </Button>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {alerts.length > 0 && (
+        <Card className="mb-6 border-warning/30 bg-warning/5 py-4">
+          <CardContent className="space-y-2 px-4">
+            <div className="flex items-center justify-between gap-2">
+              <p className="flex items-center gap-2 font-medium"><BellIcon className="text-warning size-4" /> Your regular payments changed</p>
+              <Button asChild size="sm" variant="outline"><Link href="/subscriptions">Review</Link></Button>
+            </div>
+            <ul className="text-muted-foreground list-disc space-y-1 pl-5 text-sm">
+              {alerts.map((a) => <li key={a.id}>{a.message}</li>)}
+            </ul>
           </CardContent>
         </Card>
       )}
