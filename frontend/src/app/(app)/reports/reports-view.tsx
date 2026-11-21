@@ -130,7 +130,7 @@ function ReportBody({ r, c, ai }: { r: Report; c: string; ai: string }) {
         <Stat label="Saved of income" value={s.savings_rate ? `${s.savings_rate}%` : "—"} sub={p.savings_rate ? `${p.savings_rate}% last month` : undefined} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader><CardTitle>Highlights</CardTitle></CardHeader>
           <CardContent><ul className="list-disc space-y-1 pl-5 text-sm">{r.highlights.map((h) => <li key={h}>{h}</li>)}</ul></CardContent>

@@ -127,7 +127,7 @@ export function SubscriptionsView() {
               <section key={g.kind} className="mb-6">
                 <h2 className="text-lg font-semibold">{g.title}</h2>
                 <p className="text-muted-foreground mb-3 text-sm">{g.hint}</p>
-                <div className="grid gap-3 lg:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                   {items.map((i) => (
                     <PaymentCard key={i.id} item={i} currency={c} onPatch={(b) => patch(i, b)} />
                   ))}
