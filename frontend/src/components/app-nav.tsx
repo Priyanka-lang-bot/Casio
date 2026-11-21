@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { NAV, findNav } from "@/lib/nav";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 function DemoBanner() {
   const router = useRouter();
@@ -33,7 +34,7 @@ function DemoBanner() {
         <FlaskConicalIcon className="size-3.5" aria-hidden="true" /> DEMO · SAMPLE DATA
       </span>
       <span className="demo-text">
-        Aanya Kapoor is a fictional person. Your changes stay in your own private sandbox, which is deleted after 24 hours.
+        Aanya Kapoor is a fictional person and every amount is sample data. Your changes stay in your own private sandbox, deleted after 24 hours.
       </span>
       <span className="demo-actions">
         <button type="button" onClick={reset} disabled={!!busy}>
@@ -146,7 +147,7 @@ export function AppShell({ userName, email, isDemo, children }: { userName: stri
   const current = findNav(pathname);
 
   return (
-    <div className={cn("flex flex-1 flex-col", isWallet && "wallet-bg")}>
+    <div className={cn("flex flex-1 flex-col", isWallet ? "wallet-bg" : "paper-bg")}>
       <a href="#main" className="skip-link">
         Skip to content
       </a>
@@ -176,6 +177,7 @@ export function AppShell({ userName, email, isDemo, children }: { userName: stri
         </div>
         <div className="flex items-center gap-2">
           {!isWallet && <CardSwitcher current={current?.href} />}
+          <ThemeToggle />
           <UserMenu userName={userName} email={email} />
         </div>
       </header>

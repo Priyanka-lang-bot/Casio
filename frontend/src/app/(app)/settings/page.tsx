@@ -5,5 +5,5 @@ export const metadata = { title: "Settings · CASIO" };
 
 export default async function Page() {
   const user = await getCurrentUser();
-  return <SettingsView name={user?.full_name ?? ""} email={user?.email ?? ""} />;
+  return <SettingsView name={user?.full_name ?? ""} email={user?.email ?? ""} isDemo={!!user?.is_demo} />;
 }

@@ -467,6 +467,8 @@ class RecurringPayment(Timestamps, Base):
     usage: Mapped[str] = mapped_column(String(10), default="unknown")
     usage_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     name_edited: Mapped[bool] = mapped_column(default=False)
+    # Added by the user, not found in transactions. Detection leaves it alone.
+    manual: Mapped[bool] = mapped_column(default=False, server_default=false())
 
     category: Mapped[Category | None] = relationship(lazy="joined")
 

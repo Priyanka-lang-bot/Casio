@@ -297,7 +297,7 @@ function BackLink() {
 
 function Stat({ label, value, tone }: { label: string; value: number; tone?: "bad" | "warn" }) {
   return (
-    <div className="rounded-lg border bg-white px-3 py-2">
+    <div className="rounded-lg border bg-card px-3 py-2">
       <p className="text-muted-foreground text-xs">{label}</p>
       <p className={`text-xl font-semibold tabular-nums ${tone === "bad" ? "text-destructive" : tone === "warn" ? "text-warning" : ""}`}>{value}</p>
     </div>

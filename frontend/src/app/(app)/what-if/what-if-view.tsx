@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { api } from "@/lib/api";
+import { LiveSimulator } from "./live-simulator";
 import { formatDate, formatMoney, formatMonth } from "@/lib/format";
 import type { Change, SimResult } from "@/lib/planning-types";
 import type { Category } from "@/lib/types";
@@ -90,6 +91,10 @@ export function WhatIfView({ initialQuestion }: { initialQuestion?: string }) {
         title="What-If Simulator"
         description="Try a change before you make it. CASIO starts from your usual month, applies the change and shows the effect on your savings and goals."
       />
+
+      <LiveSimulator />
+
+      <h2 className="font-display mt-10 mb-3 text-2xl font-semibold">Ask a question or build a scenario</h2>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>

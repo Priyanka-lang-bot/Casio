@@ -213,12 +213,12 @@ def detect_recurring(db: Session, user: User) -> date:
     currency = profile.currency if profile else "INR"
     existing = {r.merchant_key: r for r in db.scalars(select(RecurringPayment).where(RecurringPayment.user_id == user.id))}
     for key, rp in existing.items():
-        if key not in found and rp.status != "not_recurring":
+        if key not in found and rp.status != "not_recurring" and not rp.manual:
             db.delete(rp)  # no longer repeating (e.g. an import was undone)
 
     for key, (series, cat_id) in found.items():
         rp = existing.get(key)
-        if rp is not None and rp.status == "not_recurring":
+        if rp is not None and (rp.status == "not_recurring" or rp.manual):
             continue  # the user said this isn't a regular payment
         last = series.charges[-1]
         amounts = [c.amount for c in series.charges]
@@ -292,6 +292,8 @@ def _raise_alerts(db: Session, user: User, rp: RecurringPayment, as_of: date, is
 def state(rp: RecurringPayment, as_of: date) -> str:
     if rp.status != "active":
         return rp.status
+    if rp.manual:
+        return "active"  # CASIO can't see these payments, so never "overdue"
     if rp.next_expected_on and rp.next_expected_on + timedelta(days=PERIODS[rp.frequency][3]) < as_of:
         return "overdue"
     return "active"

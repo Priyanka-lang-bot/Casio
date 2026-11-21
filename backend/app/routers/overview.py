@@ -90,3 +90,59 @@ def overview(
         "recent_transactions": [to_out(t) for t in recent],
         "plan": summary(user=user, db=db),
     })
+
+
+UNUSUAL_WINDOW_DAYS = 45
+UNUSUAL_BASELINE_DAYS = 180
+UNUSUAL_RATIO = Decimal("2.5")
+UNUSUAL_MIN_GAP = Decimal("500")
+
+
+@router.get("/insights/unusual")
+def unusual_spending(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Recent single payments that are much larger than usual for their
+    category. "Usual" is the median payment in that category over the six
+    months before the window. All ACTUAL data; nothing is estimated."""
+    latest = db.scalar(select(func.max(Transaction.occurred_on)).where(Transaction.user_id == user.id))
+    if latest is None:
+        return {"window_start": None, "items": [], "method": ""}
+    latest = min(latest, dt.date.today())
+    window_start = latest - dt.timedelta(days=UNUSUAL_WINDOW_DAYS)
+    base_start = window_start - dt.timedelta(days=UNUSUAL_BASELINE_DAYS)
+    rows = db.scalars(
+        select(Transaction).where(
+            Transaction.user_id == user.id, Transaction.type == "expense",
+            Transaction.occurred_on >= base_start, Transaction.occurred_on <= latest,
+        )
+    ).all()
+    baseline: dict = {}
+    for t in rows:
+        if t.occurred_on < window_start:
+            baseline.setdefault(t.category_id, []).append(t.amount)
+    items = []
+    for t in rows:
+        if t.occurred_on < window_start:
+            continue
+        prior = baseline.get(t.category_id) or []
+        if len(prior) < 5:
+            continue  # not enough history to say what's usual
+        typical = money(sorted(prior)[len(prior) // 2])
+        if t.amount >= typical * UNUSUAL_RATIO and t.amount - typical >= UNUSUAL_MIN_GAP:
+            out = to_out(t)
+            items.append({
+                "transaction": to_json(out),
+                "typical": str(typical),
+                "times": str(money(t.amount / typical)) if typical else None,
+                "count_before": len(prior),
+            })
+    items.sort(key=lambda i: Decimal(i["transaction"]["amount"]), reverse=True)
+    return {
+        "window_start": window_start.isoformat(),
+        "as_of": latest.isoformat(),
+        "items": items[:12],
+        "method": (
+            f"A payment is flagged when it is at least {UNUSUAL_RATIO}× the usual payment in its category and at least "
+            f"{UNUSUAL_MIN_GAP:.0f} more. Usual = the middle (median) payment in that category over the {UNUSUAL_BASELINE_DAYS} days "
+            f"before the last {UNUSUAL_WINDOW_DAYS} days. Categories with fewer than 5 earlier payments are skipped."
+        ),
+    }

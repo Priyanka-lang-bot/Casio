@@ -366,7 +366,7 @@ def snapshot_data(model: dict) -> dict:
 # ---------------------------------------------------------------------------
 # What-if simulator
 # ---------------------------------------------------------------------------
-CHANGE_TYPES = ("income_change", "category_change", "new_expense", "extra_saving", "one_time_expense")
+CHANGE_TYPES = ("income_change", "category_change", "spending_change", "new_expense", "extra_saving", "one_time_expense")
 
 
 def _apply(base: Decimal, percent: Decimal | None, amount: Decimal | None) -> Decimal:
@@ -384,6 +384,7 @@ def simulate(db: Session, user: User, changes: list[dict]) -> dict:
     changes: list of dicts, each with "type" in CHANGE_TYPES and:
       income_change:     percent and/or amount (+ raises, - cuts), monthly
       category_change:   category (name), percent and/or amount, monthly
+      spending_change:   percent applied to every spending line, monthly
       new_expense:       label, amount (monthly)
       extra_saving:      amount (monthly, set aside for goals), optional goal_id
       one_time_expense:  label, amount (happens once, next month)
@@ -441,6 +442,13 @@ def simulate(db: Session, user: User, changes: list[dict]) -> dict:
                 problems.append(f"You have no usual spending on {label}, so a percentage change does nothing.")
             new_lines[label] = money(_apply(before, pct, amt))
             applied.append({"type": t, "label": label, "before": before, "after": new_lines[label]})
+        elif t == "spending_change":
+            if pct is None:
+                problems.append("A change to all spending needs a percentage.")
+                continue
+            before = sum(new_lines.values(), ZERO)
+            new_lines = {k: money(_apply(v, pct, None)) for k, v in new_lines.items()}
+            applied.append({"type": t, "label": "All spending", "before": money(before), "after": money(sum(new_lines.values(), ZERO))})
         elif t == "new_expense":
             label = str(ch.get("label") or "New expense")[:60]
             if not amt or amt <= 0:

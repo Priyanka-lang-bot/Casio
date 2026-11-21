@@ -2,18 +2,19 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
-import { ArrowRightIcon, EyeIcon, LockKeyholeIcon, ShieldCheckIcon, SparklesIcon } from "lucide-react";
+import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { ArrowRightIcon, EyeIcon, LockKeyholeIcon, ShieldCheckIcon } from "lucide-react";
 import { CardFace } from "@/components/wallet/card-face";
 import { api } from "@/lib/api";
 import { formatMoney, formatMonth } from "@/lib/format";
 import { NAV, type NavItem } from "@/lib/nav";
 import type { Overview } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { usePrefs } from "@/lib/prefs";
 
 const POCKETS: { id: NavItem["group"]; title: string; subtitle: string }[] = [
-  { id: "everyday", title: "Everyday money", subtitle: "Track, import and understand" },
-  { id: "plan", title: "Plan & grow", subtitle: "Profile, goals and guidance" },
+  { id: "everyday", title: "Everyday Money", subtitle: "Track, import and understand" },
+  { id: "plan", title: "Plan & Grow", subtitle: "Profile, goals and guidance" },
 ];
 
 // Problems people have with finance apps, and where CASIO answers each one.
@@ -43,7 +44,8 @@ function usePrefersReducedMotion() {
 
 export function WalletView({ firstName, isDemo }: { firstName: string; isDemo: boolean }) {
   const router = useRouter();
-  const reduced = usePrefersReducedMotion();
+  const prefs = usePrefs();
+  const reduced = usePrefersReducedMotion() || prefs.reduceMotion;
   const stageRef = useRef<HTMLDivElement>(null);
   const frame = useRef(0);
   const [active, setActive] = useState<NavItem>(NAV[0]);
@@ -86,7 +88,7 @@ export function WalletView({ firstName, isDemo }: { firstName: string; isDemo: b
       return;
     }
     setOpening(item.href);
-    window.setTimeout(() => router.push(item.href), 320);
+    window.setTimeout(() => router.push(item.href), 340);
   }
 
   // Arrow keys move between cards in reading order.
@@ -109,31 +111,29 @@ export function WalletView({ firstName, isDemo }: { firstName: string; isDemo: b
     <div className="wallet-page">
       <section className="wallet-hero" aria-labelledby="wallet-title">
         <div className="wallet-intro">
-          <p className="wallet-kicker">
-            <SparklesIcon className="size-3.5" aria-hidden="true" /> Personal financial intelligence
-          </p>
+          <p className="wallet-kicker">Your wallet · 14 cards</p>
           <h1 id="wallet-title" className="wallet-title">
             {firstName ? `${firstName}'s money,` : "Your money,"}
             <br />
-            <span>in one wallet.</span>
+            <em>neatly folded.</em>
           </h1>
           <p className="wallet-lead">
-            Every CASIO feature is a card. Pick one to open it. Your browser&apos;s back button, or the Wallet button, brings you back here.
+            Every CASIO feature is a card in this wallet. Everyday money on the left, planning on the right. Pick a card to open it; the back button brings you here.
           </p>
 
           {ov?.has_transactions && (
             <dl className="wallet-stats" aria-label={`This month, ${formatMonth(ov.month)}`}>
               <div>
                 <dt>Money in</dt>
-                <dd>{formatMoney(ov.actual.month_income, c)}</dd>
+                <dd className={cn(prefs.hideAmounts && "amount-hidden")}>{formatMoney(ov.actual.month_income, c)}</dd>
               </div>
               <div>
                 <dt>Money out</dt>
-                <dd>{formatMoney(ov.actual.month_expenses, c)}</dd>
+                <dd className={cn(prefs.hideAmounts && "amount-hidden")}>{formatMoney(ov.actual.month_expenses, c)}</dd>
               </div>
               <div>
                 <dt>Left so far</dt>
-                <dd className={Number(ov.actual.month_net) >= 0 ? "pos" : "neg"}>{formatMoney(ov.actual.month_net, c)}</dd>
+                <dd className={cn(Number(ov.actual.month_net) >= 0 ? "pos" : "neg", prefs.hideAmounts && "amount-hidden")}>{formatMoney(ov.actual.month_net, c)}</dd>
               </div>
               <p className="wallet-stats-note">
                 {formatMonth(ov.month)} so far, from recorded transactions. Left = money in − money out.
@@ -141,9 +141,10 @@ export function WalletView({ firstName, isDemo }: { firstName: string; isDemo: b
             </dl>
           )}
 
-          <div className="wallet-detail" aria-live="polite">
+          <div className="wallet-detail">
             <p className="wallet-detail-label">
               <span className="wallet-swatch" style={{ background: `linear-gradient(135deg, ${active.theme.from}, ${active.theme.to})` }} />
+              <span className="wallet-detail-no">{String(NAV.indexOf(active) + 1).padStart(2, "0")}</span>
               {active.label}
             </p>
             <p className="wallet-detail-desc">{active.description}</p>
@@ -160,48 +161,49 @@ export function WalletView({ firstName, isDemo }: { firstName: string; isDemo: b
           onPointerLeave={onPointerLeave}
           onKeyDown={onKeyDown}
         >
-          <nav aria-label="CASIO features" className="wallet-3d">
+          <nav aria-label="CASIO features" className="wallet-book leather">
             {POCKETS.map((p, pi) => {
               const items = NAV.filter((n) => n.group === p.id);
               return (
-                <div key={p.id} className={cn("pocket", pi === 0 ? "pocket-left" : "pocket-right")}>
-                  <h2 className="sr-only">{p.title}</h2>
-                  <ul className="pocket-cards" style={{ "--n": items.length } as CSSProperties}>
-                    {items.map((item, idx) => {
-                      const depth = items.length - 1 - idx; // first item sits at the back, highest
-                      const o = order++;
-                      const navIndex = NAV.indexOf(item);
-                      return (
-                        <li key={item.href} className="pocket-slot" style={{ "--d": depth, "--o": o, zIndex: 10 + (items.length - depth) } as CSSProperties}>
-                          <Link
-                            href={item.href}
-                            data-card
-                            className={cn("wallet-card", opening === item.href && "is-open", active.href === item.href && "is-active")}
-                            onClick={(e) => open(e, item)}
-                            onMouseEnter={() => setActive(item)}
-                            onFocus={() => setActive(item)}
-                            aria-label={`${item.label}: ${item.description}`}
-                          >
-                            <CardFace item={item} index={navIndex} />
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                  <div className="pocket-front" aria-hidden="true">
-                    <span className="pocket-band" />
-                    <span className="pocket-title">{p.title}</span>
-                    <span className="pocket-sub">{p.subtitle}</span>
-                    {pi === 0 ? <span className="pocket-badge">C</span> : <span className="pocket-badge pocket-badge-alt">₹</span>}
+                <Fragment key={p.id}>
+                  {pi === 1 && <div className="wallet-spine" aria-hidden="true" />}
+                  <div className={cn("wallet-half leather", pi === 0 ? "wallet-half-left" : "wallet-half-right")} style={{ "--n": items.length } as CSSProperties}>
+                    <h2 className="sr-only">
+                      {p.title}: {p.subtitle}
+                    </h2>
+                    <ul className="slots">
+                      {items.map((item, idx) => {
+                        const o = order++;
+                        const navIndex = NAV.indexOf(item);
+                        return (
+                          <li key={item.href} className="slot" style={{ "--i": idx, "--o": o, zIndex: 10 + idx } as CSSProperties}>
+                            <Link
+                              href={item.href}
+                              data-card
+                              className={cn("wallet-card", opening === item.href && "is-open", active.href === item.href && "is-active")}
+                              onClick={(e) => open(e, item)}
+                              onMouseEnter={() => setActive(item)}
+                              onFocus={() => setActive(item)}
+                              aria-label={`${navIndex + 1}. ${item.label}: ${item.description}`}
+                            >
+                              <CardFace item={item} index={navIndex} />
+                            </Link>
+                            <span className="slot-lip leather" aria-hidden="true" />
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    <div className="front-pocket leather" aria-hidden="true">
+                      <span className="pocket-title">{p.title}</span>
+                      <span className="pocket-sub">{p.subtitle}</span>
+                      <span className="pocket-snap" />
+                    </div>
                   </div>
-                </div>
+                </Fragment>
               );
             })}
           </nav>
           <div className="wallet-shadow" aria-hidden="true" />
-          <span className="wallet-coin coin-a" aria-hidden="true">₹</span>
-          <span className="wallet-coin coin-b" aria-hidden="true" />
-          <span className="wallet-coin coin-c" aria-hidden="true" />
           <p className="wallet-hint">
             <kbd>Tab</kbd> or arrow keys to move between cards, <kbd>Enter</kbd> to open
           </p>

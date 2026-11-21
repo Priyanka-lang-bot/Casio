@@ -10,10 +10,11 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { api } from "@/lib/api";
 import { AccountSettings } from "./account-settings";
+import { Preferences } from "./preferences";
 
 const CURRENCIES = { INR: "Indian rupee (₹)", USD: "US dollar ($)", EUR: "Euro (€)", GBP: "British pound (£)", AED: "UAE dirham", SGD: "Singapore dollar" };
 
-export function SettingsView({ name, email }: { name: string; email: string }) {
+export function SettingsView({ name, email, isDemo = false }: { name: string; email: string; isDemo?: boolean }) {
   const [currency, setCurrency] = useState("");
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
@@ -25,8 +26,9 @@ export function SettingsView({ name, email }: { name: string; email: string }) {
 
   return (
     <>
-      <PageHeader title="Settings" />
+      <PageHeader title="Settings & Privacy" description="Your account, how CASIO looks, reminders, currency, and your data." />
       <div className="grid max-w-2xl gap-6">
+        <Preferences isDemo={isDemo} />
         <Card>
           <CardHeader>
             <CardTitle>Your account</CardTitle>
