@@ -144,7 +144,7 @@ function ReportBody({ r, c, ai }: { r: Report; c: string; ai: string }) {
                   <span>{x.category} <span className="text-muted-foreground text-xs">{x.share_percent ? `${Number(x.share_percent).toFixed(0)}%` : ""}</span></span>
                   <span className="tabular-nums">
                     {formatMoney(x.amount, c)}{" "}
-                    {x.change_percent && <span className={`text-xs ${Number(x.change) > 0 ? "text-destructive" : "text-success"}`}>{Number(x.change) > 0 ? "▲" : "▼"}{Math.abs(Number(x.change_percent)).toFixed(0)}%</span>}
+                    {x.change_percent && Number(x.change) !== 0 && <span className={`text-xs ${Number(x.change) > 0 ? "text-destructive" : "text-success"}`}>{Number(x.change) > 0 ? "▲" : "▼"}{Math.abs(Number(x.change_percent)).toFixed(0)}%</span>}
                   </span>
                 </li>
               ))}

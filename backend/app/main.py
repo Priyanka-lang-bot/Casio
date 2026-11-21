@@ -1,10 +1,29 @@
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.routers import account, auth, coaching, imports, overview, planning, profile, rules, subscriptions, transactions
 
-app = FastAPI(title="CASIO API", version="0.1.0")
+from app.config import get_settings  # noqa: E402
+
+logging.basicConfig(level=logging.INFO)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    if get_settings().migrate_on_startup:
+        from starlette.concurrency import run_in_threadpool
+
+        from app.migrate import upgrade
+
+        await run_in_threadpool(upgrade)
+    yield
+
+
+app = FastAPI(title="CASIO API", version="1.0.0", lifespan=lifespan)
 
 
 @app.exception_handler(RequestValidationError)
@@ -34,4 +53,19 @@ for r in (
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok"}
+    """For uptime checks: confirms the API runs and can reach the database."""
+    from sqlalchemy import text
+
+    from app import ai
+    from app.db import engine
+
+    try:
+        with engine.connect() as conn:
+            version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
+        db = "ok"
+    except Exception:
+        version, db = None, "unreachable"
+    return JSONResponse(
+        status_code=200 if db == "ok" else 503,
+        content={"status": "ok" if db == "ok" else "degraded", "database": db, "schema": version, "ai": ai.ai_status()},
+    )

@@ -150,7 +150,7 @@ export function MoneyModelView() {
               <XAxis dataKey="month" fontSize={12} />
               <YAxis fontSize={12} width={70} tickFormatter={(v) => formatMoney(v, c).replace(/\.00$/, "")} />
               <Tooltip formatter={(v) => formatMoney(Number(v), c)} />
-              <Line type="monotone" dataKey="Savings" stroke="var(--color-primary)" strokeWidth={2} strokeDasharray="6 3" dot={false} />
+              <Line isAnimationActive={false} type="monotone" dataKey="Savings" stroke="var(--color-primary)" strokeWidth={2} strokeDasharray="6 3" dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </CardContent>

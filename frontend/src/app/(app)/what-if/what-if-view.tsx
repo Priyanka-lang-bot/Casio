@@ -207,8 +207,8 @@ function ResultView({ r }: { r: SimResult }) {
               <YAxis fontSize={12} width={70} tickFormatter={(v) => formatMoney(v, c).replace(/\.00$/, "")} />
               <Tooltip formatter={(v) => formatMoney(Number(v), c)} />
               <Legend />
-              <Line type="monotone" dataKey="As things are" stroke="var(--muted-foreground)" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="With the change" stroke="var(--primary)" strokeWidth={2} dot={false} />
+              <Line isAnimationActive={false} type="monotone" dataKey="As things are" stroke="var(--muted-foreground)" strokeWidth={2} dot={false} />
+              <Line isAnimationActive={false} type="monotone" dataKey="With the change" stroke="var(--primary)" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </CardContent>
