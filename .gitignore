@@ -1,0 +1,21 @@
+# Secrets and local settings
+.env
+.env.local
+!.env.example
+
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/next-env.d.ts
+*.tsbuildinfo
+
+# Uploaded statements (never commit user files)
+backend/uploads/
+
+.DS_Store
