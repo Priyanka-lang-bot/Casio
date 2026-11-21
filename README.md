@@ -2,6 +2,8 @@
 
 Adaptive AI personal finance coach. *Don't just track money. Understand it.*
 
+**Live:** https://casio-three.vercel.app (API: https://casio-api.vercel.app/api/health)
+
 This is the real application (no landing page). Every section works:
 
 | Section | What it does |
