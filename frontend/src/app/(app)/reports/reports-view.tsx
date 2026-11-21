@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { FileTextIcon, PrinterIcon, RefreshCwIcon, SparklesIcon } from "lucide-react";
+import { DownloadIcon, FileTextIcon, PrinterIcon, RefreshCwIcon, SparklesIcon } from "lucide-react";
 import { BasisBadge } from "@/components/basis-badge";
 import { Alert } from "@/components/form";
 import { PageHeader } from "@/components/page-header";
@@ -14,6 +14,43 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { api } from "@/lib/api";
 import { formatDate, formatMoney, formatMonth } from "@/lib/format";
 import type { Report, ReportList } from "@/lib/planning-types";
+
+// Builds a spreadsheet-friendly CSV of the report in the browser. Amounts are
+// written exactly as the backend calculated them.
+function downloadCsv(r: Report) {
+  const rows: (string | number | null)[][] = [
+    ["CASIO monthly report", r.month],
+    [],
+    ["Summary", "This month", "Previous month"],
+    ["Money in", r.summary.income, r.previous.income],
+    ["Money out", r.summary.spending, r.previous.spending],
+    ["Left over", r.summary.net, r.previous.net],
+    ["Savings rate %", r.summary.savings_rate, r.previous.savings_rate],
+    [],
+    ["Category", "Amount", "Previous month", "Change", "Share %"],
+    ...r.categories.map((c) => [c.category, c.amount, c.previous, c.change, c.share_percent]),
+    [],
+    ["Budget", "Limit", "Spent", "Left"],
+    ...r.budgets.items.map((b) => [b.category_name, b.amount, b.spent, b.remaining]),
+    [],
+    ["Goal", "Saved", "Target", "Added this month", "Progress %"],
+    ...r.goals.map((g) => [g.name, g.saved_amount, g.target_amount, g.added_this_month, g.progress_percent]),
+    [],
+    ["Largest expenses", "Date", "Amount", "Category"],
+    ...r.largest_expenses.map((e) => [e.description, e.date, e.amount, e.category]),
+  ];
+  const esc = (v: string | number | null) => {
+    let t = v === null || v === undefined ? "" : String(v);
+    if (/^[=+@\t\r]/.test(t) || (/^-/.test(t) && Number.isNaN(Number(t)))) t = `'${t}`; // never a spreadsheet formula
+    return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+  };
+  const blob = new Blob([rows.map((row) => row.map(esc).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `casio-report-${r.month}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 
 export function ReportsView() {
   const [list, setList] = useState<ReportList | null>(null);
@@ -79,6 +116,7 @@ export function ReportsView() {
               {list.months.map((m) => <option key={m.month} value={m.month}>{formatMonth(m.month)}</option>)}
             </NativeSelect>
             <Button variant="outline" onClick={regenerate} disabled={busy}><RefreshCwIcon /> Refresh</Button>
+            <Button variant="outline" onClick={() => report && downloadCsv(report)} disabled={!report || report.month !== month}><DownloadIcon /> CSV</Button>
             <Button variant="outline" onClick={() => window.print()}><PrinterIcon /> Print / PDF</Button>
           </div>
         }

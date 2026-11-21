@@ -122,7 +122,7 @@ export function ImportView({ isDemo = false }: { isDemo?: boolean }) {
         </Card>
       )}
 
-      <div className="mb-4 inline-flex rounded-lg border bg-white p-1" role="tablist" aria-label="How to import">
+      <div className="mb-4 inline-flex rounded-lg border bg-card p-1" role="tablist" aria-label="How to import">
         {(
           [
             ["file", "Upload a file", UploadIcon],

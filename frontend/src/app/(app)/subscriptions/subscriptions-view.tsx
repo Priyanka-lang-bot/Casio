@@ -6,6 +6,9 @@ import {
   BellIcon,
   CalendarClockIcon,
   ChevronDownIcon,
+  PencilIcon,
+  PlusIcon,
+  Trash2Icon,
   SparklesIcon,
   TrendingDownIcon,
   TrendingUpIcon,
@@ -20,9 +23,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
-import { FREQUENCY_LABELS, formatDate, formatMoney } from "@/lib/format";
+import { FREQUENCY_LABELS, formatDate, formatMoney, todayIso } from "@/lib/format";
 import type { Recurring, RecurringAlert, RecurringPage } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { SubscriptionDialog } from "./subscription-dialog";
+import { usePrefs } from "@/lib/prefs";
 
 type Patch = Partial<Pick<Recurring, "name" | "kind" | "status" | "usage">>;
 
@@ -37,6 +43,9 @@ export function SubscriptionsView() {
   const [data, setData] = useState<RecurringPage | null>(null);
   const [error, setError] = useState("");
   const [showHidden, setShowHidden] = useState(false);
+  const [dialog, setDialog] = useState<{ open: boolean; editing: Recurring | null }>({ open: false, editing: null });
+  const [deleting, setDeleting] = useState<Recurring | null>(null);
+  const [notice, setNotice] = useState("");
 
   const [version, setVersion] = useState(0);
   const load = () => setVersion((v) => v + 1);
@@ -56,6 +65,44 @@ export function SubscriptionsView() {
     await api(`/subscriptions/alerts/${alert.id}/dismiss`, {});
   }
 
+  async function remove(item: Recurring) {
+    const r = await api(`/subscriptions/${item.id}`, undefined, "DELETE");
+    setDeleting(null);
+    if (!r.ok) return setError(r.message);
+    setNotice(`${item.name} deleted.`);
+    load();
+  }
+
+  const addButton = (
+    <Button onClick={() => setDialog({ open: true, editing: null })}>
+      <PlusIcon /> Add subscription
+    </Button>
+  );
+  const dialogs = (
+    <>
+      <SubscriptionDialog
+        open={dialog.open}
+        editing={dialog.editing}
+        onClose={() => setDialog({ open: false, editing: null })}
+        onSaved={(msg) => {
+          setDialog({ open: false, editing: null });
+          setNotice(msg);
+          load();
+        }}
+      />
+      <ConfirmDialog
+        open={!!deleting}
+        title={`Delete ${deleting?.name ?? ""}?`}
+        description="This removes the payment you added by hand. Your transactions are not affected."
+        confirmLabel="Delete"
+        onConfirm={async () => {
+          if (deleting) await remove(deleting);
+        }}
+        onOpenChange={(o) => !o && setDeleting(null)}
+      />
+    </>
+  );
+
   if (error && !data) return <Alert kind="error">{error}</Alert>;
   if (!data) return <p className="text-muted-foreground py-10 text-center text-sm">Looking for repeating payments…</p>;
 
@@ -74,9 +121,12 @@ export function SubscriptionsView() {
     <>
       <PageHeader
         title="Subscriptions"
-        description={`Payments CASIO saw repeating every week, month, quarter or year. Based on your transactions up to ${formatDate(data.as_of)}.`}
+        description={`Payments CASIO saw repeating every week, month, quarter or year, plus any you added. Based on your transactions up to ${formatDate(data.as_of)}.`}
+        action={addButton}
       />
+      {dialogs}
       {error && <div className="mb-4"><Alert kind="error">{error}</Alert></div>}
+      {notice && <div className="mb-4"><Alert kind="success">{notice}</Alert></div>}
 
       {data.items.length === 0 ? (
         <Card>
@@ -104,6 +154,8 @@ export function SubscriptionsView() {
             />
           </div>
 
+          <Upcoming items={live} currency={c} />
+
           {data.alerts.length > 0 && (
             <Card className="mb-6">
               <CardHeader>
@@ -129,7 +181,14 @@ export function SubscriptionsView() {
                 <p className="text-muted-foreground mb-3 text-sm">{g.hint}</p>
                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                   {items.map((i) => (
-                    <PaymentCard key={i.id} item={i} currency={c} onPatch={(b) => patch(i, b)} />
+                    <PaymentCard
+                      key={i.id}
+                      item={i}
+                      currency={c}
+                      onPatch={(b) => patch(i, b)}
+                      onEdit={() => setDialog({ open: true, editing: i })}
+                      onDelete={() => setDeleting(i)}
+                    />
                   ))}
                 </div>
               </section>
@@ -143,7 +202,7 @@ export function SubscriptionsView() {
                 <ChevronDownIcon className={cn("size-4 transition-transform", showHidden && "rotate-180")} />
               </button>
               {showHidden && (
-                <ul className="mt-3 divide-y rounded-lg border bg-white">
+                <ul className="mt-3 divide-y rounded-lg border bg-card">
                   {hidden.map((i) => (
                     <li key={i.id} className="flex flex-wrap items-center gap-2 px-4 py-3 text-sm">
                       <span className="flex-1 font-medium">{i.name}</span>
@@ -224,7 +283,48 @@ function AlertRow({
   );
 }
 
-function PaymentCard({ item: i, currency: c, onPatch }: { item: Recurring; currency: string; onPatch: (b: Patch) => void }) {
+function Upcoming({ items, currency: c }: { items: Recurring[]; currency: string }) {
+  const { remindUpcoming } = usePrefs();
+  const today = new Date(`${todayIso()}T00:00:00`).getTime();
+  const DAY = 86400000;
+  const soon = items
+    .filter((i) => i.next_expected_on)
+    .map((i) => ({ i, days: Math.round((new Date(`${i.next_expected_on}T00:00:00`).getTime() - today) / DAY) }))
+    .filter((x) => x.days >= 0 && x.days <= 30)
+    .sort((a, b) => a.days - b.days);
+  const total = soon.reduce((a, x) => a + Number(x.i.amount_varies ? x.i.average_amount : x.i.amount), 0);
+  if (!remindUpcoming) return null;
+  return (
+    <Card className="mb-6">
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center gap-2">
+          <CalendarClockIcon className="size-4" /> Coming up in the next 30 days <BasisBadge basis="forecast" />
+        </CardTitle>
+        <CardDescription>
+          {soon.length ? `${soon.length} payment${soon.length === 1 ? "" : "s"}, about ${formatMoney(total, c)} in total.` : "Nothing expected in the next 30 days."}
+        </CardDescription>
+      </CardHeader>
+      {soon.length > 0 && (
+        <CardContent>
+          <ul className="divide-y">
+            {soon.map(({ i, days }) => (
+              <li key={i.id} className="flex items-center gap-3 py-2.5 text-sm">
+                <span className={cn("w-20 shrink-0 text-xs font-semibold", days <= 3 ? "text-warning" : "text-muted-foreground")}>
+                  {days === 0 ? "Today" : days === 1 ? "Tomorrow" : `In ${days} days`}
+                </span>
+                <span className="min-w-0 flex-1 truncate font-medium">{i.name}</span>
+                <span className="text-muted-foreground hidden text-xs sm:inline">{formatDate(i.next_expected_on!)}</span>
+                <span className="font-semibold tabular-nums">{formatMoney(i.amount_varies ? i.average_amount : i.amount, c)}</span>
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+function PaymentCard({ item: i, currency: c, onPatch, onEdit, onDelete }: { item: Recurring; currency: string; onPatch: (b: Patch) => void; onEdit: () => void; onDelete: () => void }) {
   const [open, setOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState(i.name);
@@ -253,6 +353,7 @@ function PaymentCard({ item: i, currency: c, onPatch }: { item: Recurring; curre
             )}
             <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-1.5 text-xs">
               <Badge variant="secondary">{KIND_LABEL[i.kind]}</Badge>
+              {i.manual && <Badge variant="outline">Added by you</Badge>}
               {i.category_name && <span>{i.category_name}</span>}
               {i.state === "overdue" && <Badge variant="warning">Payment not seen</Badge>}
               {i.usage === "not_using" && <Badge variant="warning">You don&apos;t use it</Badge>}
@@ -303,17 +404,27 @@ function PaymentCard({ item: i, currency: c, onPatch }: { item: Recurring; curre
 
         <div className="flex flex-wrap items-center gap-2 border-t pt-2">
           <button className="text-primary flex items-center gap-1 text-xs font-medium" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-            Why CASIO thinks this repeats
+            {i.manual ? "Details" : "Why CASIO thinks this repeats"}
             <ChevronDownIcon className={cn("size-3.5 transition-transform", open && "rotate-180")} />
           </button>
-          <div className="ml-auto flex gap-1">
-            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => onPatch({ status: "cancelled" })}>I cancelled it</Button>
-            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => onPatch({ status: "not_recurring" })}>Not regular</Button>
+          <div className="ml-auto flex flex-wrap gap-1">
+            {i.manual ? (
+              <>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onEdit}><PencilIcon /> Edit</Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => onPatch({ status: "cancelled" })}>Cancelled</Button>
+                <Button size="sm" variant="ghost" className="text-destructive h-7 text-xs" onClick={onDelete}><Trash2Icon /> Delete</Button>
+              </>
+            ) : (
+              <>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => onPatch({ status: "cancelled" })}>I cancelled it</Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => onPatch({ status: "not_recurring" })}>Not regular</Button>
+              </>
+            )}
           </div>
         </div>
         {open && (
           <div className="space-y-2 text-xs">
-            <p className="text-muted-foreground">{i.explanation} {Math.round(i.confidence * 100)}% sure.</p>
+            <p className="text-muted-foreground">{i.explanation}{i.manual ? "" : ` ${Math.round(i.confidence * 100)}% sure.`}</p>
             <div className="flex h-16 items-end gap-1" aria-label="Payment history">
               {i.charges.map((ch) => (
                 <div key={ch.date} className="flex flex-1 flex-col items-center gap-1" title={`${formatDate(ch.date)}: ${formatMoney(ch.amount, c)}`}>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowDownRightIcon, ArrowUpRightIcon, BellIcon, CalculatorIcon } from "lucide-react";
+import { ArrowDownRightIcon, ArrowUpRightIcon, BellIcon, CalculatorIcon, ZapIcon } from "lucide-react";
 import { BasisBadge } from "@/components/basis-badge";
 import { Alert } from "@/components/form";
 import { NudgeList } from "@/components/nudge-list";
@@ -10,9 +10,10 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { api } from "@/lib/api";
-import { formatMoney, formatMonth } from "@/lib/format";
+import { formatDate, formatMoney, formatMonth } from "@/lib/format";
 import type { MoneyModel, Report } from "@/lib/planning-types";
-import type { RecurringAlert } from "@/lib/types";
+import type { RecurringAlert, Transaction } from "@/lib/types";
+import { usePrefs } from "@/lib/prefs";
 
 function lastFullMonth(): string {
   const d = new Date();
@@ -179,6 +180,8 @@ export function InsightsView() {
         </Card>
       </div>
 
+      <UnusualSpending currency={c} />
+
       <Card className="mt-6 bg-muted/40">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -198,5 +201,51 @@ export function InsightsView() {
         </CardContent>
       </Card>
     </>
+  );
+}
+
+type Unusual = { window_start: string | null; as_of?: string; method: string; items: { transaction: Transaction; typical: string; times: string | null; count_before: number }[] };
+
+// Single payments that are much bigger than usual for their category.
+function UnusualSpending({ currency: c }: { currency: string }) {
+  const [data, setData] = useState<Unusual | null>(null);
+  const { showUnusual } = usePrefs();
+  useEffect(() => {
+    api<Unusual>("/insights/unusual").then((r) => r.ok && setData(r.data));
+  }, []);
+  if (!showUnusual || !data || !data.window_start) return null;
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center gap-2">
+          <ZapIcon className="size-4" aria-hidden="true" /> Unusual spending <BasisBadge basis="actual" />
+        </CardTitle>
+        <CardDescription>
+          Big one-off payments since {formatDate(data.window_start)}, compared with what you usually pay in the same category.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {data.items.length === 0 ? (
+          <p className="text-muted-foreground text-sm">Nothing unusual. Every recent payment is in line with your normal spending.</p>
+        ) : (
+          <ul className="divide-y">
+            {data.items.map(({ transaction: t, typical, times }) => (
+              <li key={t.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5 text-sm">
+                <span className="text-muted-foreground w-24 shrink-0 text-xs">{formatDate(t.occurred_on)}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{t.description}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {t.category_name ?? "Uncategorised"} · usually about {formatMoney(typical, c)}
+                    {times ? `, this was ${Number(times).toFixed(1)}×` : ""}
+                  </span>
+                </span>
+                <span className="font-semibold tabular-nums">{formatMoney(t.amount, c)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="text-muted-foreground mt-3 text-xs">{data.method}</p>
+      </CardContent>
+    </Card>
   );
 }

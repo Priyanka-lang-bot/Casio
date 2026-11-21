@@ -8,11 +8,11 @@ export function formatMoney(amount: string | number | null | undefined, currency
 }
 
 export function formatDate(iso: string): string {
-  return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  return new Date(`${iso}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 export function formatMonth(yyyyMm: string): string {
-  return new Date(`${yyyyMm}-01T00:00:00`).toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  return new Date(`${yyyyMm}-01T00:00:00`).toLocaleDateString("en-IN", { month: "short", year: "numeric" });
 }
 
 export function todayIso(): string {

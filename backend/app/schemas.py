@@ -451,6 +451,7 @@ class RecurringOut(BaseModel):
     usage: str
     usage_confirmed_at: dt.datetime | None
     explanation: str
+    manual: bool = False
 
 
 class RecurringAlertOut(BaseModel):
@@ -486,3 +487,16 @@ class RecurringUpdate(BaseModel):
     kind: Literal["subscription", "bill", "other"] | None = None
     status: Literal["active", "cancelled", "not_recurring"] | None = None
     usage: Literal["unknown", "using", "rarely", "not_using"] | None = None
+    # Only for payments the user added by hand:
+    amount: Annotated[Decimal, Field(gt=0, max_digits=14, decimal_places=2)] | None = None
+    frequency: Literal["weekly", "fortnightly", "monthly", "quarterly", "yearly"] | None = None
+    next_payment_on: dt.date | None = None
+
+
+class RecurringCreate(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=100)]
+    kind: Literal["subscription", "bill", "other"] = "subscription"
+    amount: Annotated[Decimal, Field(gt=0, max_digits=14, decimal_places=2)]
+    frequency: Literal["weekly", "fortnightly", "monthly", "quarterly", "yearly"] = "monthly"
+    next_payment_on: dt.date
+    category_id: uuid.UUID | None = None

@@ -4,23 +4,35 @@ Adaptive AI personal finance coach. *Don't just track money. Understand it.*
 
 **Live:** https://casio-three.vercel.app (API: https://casio-api.vercel.app/api/health)
 
-This is the real application (no landing page). Every section works:
+The home page is an editorial landing page with a live preview of the
+wallet. Signed in, every feature is a numbered card in a leather wallet
+(`/wallet`): the left holder "Everyday Money" holds cards 1 to 7, the right
+holder "Plan & Grow" holds cards 8 to 14. Light (ivory) and dark (charcoal)
+themes switch from the top bar and are remembered in the browser.
+
+**Try CASIO Demo** opens a private sandbox with six months of fictional INR
+data (salary, rent, UPI merchants, subscriptions with a price rise, budgets,
+goals, rules). Each visitor gets their own copy, it can be reset from the
+banner or Settings, and it is deleted after 24 hours.
+
+Every section works:
 
 | Section | What it does |
 |---|---|
 | Overview | This month's money in/out, 6-month chart, categories, proactive nudges, "Try with sample data" |
 | Transactions | Add, edit, delete, search, filter; shows how each category was chosen |
-| Import Statements | CSV, PDF and bank SMS; review and fix before saving; duplicates flagged; undo an import |
+| Import Statements | CSV, PDF and bank SMS; review and fix before saving; duplicates flagged; undo an import; sample files in the demo |
 | Learned Rules | Fix a category once, CASIO asks whether to remember it; edit, pause, undo rules |
 | Budgets | Monthly limits per category, spent/left, month-end forecast, suggested amounts |
-| Subscriptions | Regular payments found automatically, price rises, missed payments, "do you still use it?" |
+| Subscriptions | Regular payments found automatically, price rises, missed payments, "do you still use it?", add/edit/delete your own, next-30-days list |
 | Financial Profile | Income, regular costs, assets, debts (your estimates) |
 | Money Model | One picture combining actuals, estimates, plans and forecasts, with monthly snapshots |
 | Goals | Targets, contributions, progress, "on track / behind" with the amount needed |
-| What-If Simulator | Ask in plain words or build a scenario; effect on savings and goals |
-| Monthly Reports | Review of any month with highlights and suggestions; AI-written summary when AI is on |
+| What-If Simulator | Live sliders (income, all spending, extra saving, one-off purchase) that recalculate as you drag; ask in plain words or build a scenario; effect on savings and goals |
+| Spending Insights | Category changes vs last month, usual month by category, unusual one-off payments with the rule used |
+| Monthly Reports | Review of any month with highlights and suggestions; download as CSV or print to PDF; AI-written summary when AI is on |
 | AI Finance Coach | Answers from your real data via tools; refuses specific investment picks |
-| Settings | Name, password, currency, download all data, delete account |
+| Settings | Theme, reduce motion, hide amounts, in-app reminders (saved on the device), name, password, currency, reset demo, download all data, delete account |
 
 All money maths happens in deterministic backend code (`backend/app/finance.py`,
 `backend/app/planning.py`). The AI only reads results through tools and explains
@@ -99,8 +111,9 @@ printed in the backend terminal (terminal 1). Copy the link from there.
 ## Run the tests
 
 ```bash
-cd backend && source .venv/bin/activate && pytest     # 99 tests
+cd backend && source .venv/bin/activate && pytest     # 113 tests
 cd frontend && npx tsc --noEmit && npm run lint && npm run build
+node docs/e2e-full-qa.js                               # 45 browser checks: landing, themes, wallet, all cards, forms, mobile
 node docs/e2e-import-test.js                           # browser tests (app must be running)
 node docs/e2e-learning-test.js
 node docs/e2e-planning-test.js                         # BASE_URL=https://... to test a live site

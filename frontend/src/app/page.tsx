@@ -1,7 +1,14 @@
-import { redirect } from "next/navigation";
+import { Landing } from "@/components/landing/landing";
+import { getCurrentUser } from "@/lib/session";
 
-// No marketing homepage: "/" goes straight to the card wallet.
-// Signed-out visitors are sent on to /login by the protected app layout.
-export default function Home() {
-  redirect("/wallet");
+// The public landing page. Signed-in visitors see "Open your wallet" instead
+// of the demo and log-in buttons.
+export default async function Home() {
+  let signedIn = false;
+  try {
+    signedIn = !!(await getCurrentUser());
+  } catch {
+    signedIn = false; // backend unreachable: still show the page
+  }
+  return <Landing signedIn={signedIn} />;
 }

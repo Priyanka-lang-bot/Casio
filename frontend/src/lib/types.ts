@@ -179,6 +179,7 @@ export type Recurring = {
   usage: "unknown" | "using" | "rarely" | "not_using";
   usage_confirmed_at: string | null;
   explanation: string;
+  manual?: boolean;
 };
 
 export type RecurringAlert = { id: string; recurring_payment_id: string; kind: string; message: string; created_at: string };

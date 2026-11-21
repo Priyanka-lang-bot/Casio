@@ -102,7 +102,7 @@ export type MoneyModel = {
 };
 
 export type Change = {
-  type: "income_change" | "category_change" | "new_expense" | "extra_saving" | "one_time_expense";
+  type: "income_change" | "category_change" | "spending_change" | "new_expense" | "extra_saving" | "one_time_expense";
   category?: string;
   label?: string;
   percent?: number;
