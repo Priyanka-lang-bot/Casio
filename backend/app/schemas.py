@@ -239,3 +239,96 @@ class TransactionOut(BaseModel):
 class TransactionPage(BaseModel):
     items: list[TransactionOut]
     total: int
+
+
+# ---------------------------------------------------------------------------
+# Smart import
+# ---------------------------------------------------------------------------
+class ImportErrorOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    row_number: int | None
+    raw_text: str | None
+    message: str
+
+
+class ImportRowOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    position: int
+    row_number: int | None
+    raw_text: str
+    occurred_on: dt.date | None
+    description: str
+    merchant: str | None
+    amount: Decimal | None
+    type: str | None
+    balance_after: Decimal | None
+    category_id: uuid.UUID | None
+    category_name: str | None = None
+    category_source: str | None
+    category_confidence: float | None
+    category_reason: str | None
+    needs_check: bool = False  # low confidence: "please check this category"
+    problems: list[str]
+    duplicate_kind: str | None
+    duplicate_note: str | None
+    include: bool
+    edited: bool
+
+
+class ImportBatchOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    source_type: str
+    original_filename: str | None
+    status: str
+    rows_found: int
+    rows_imported: int
+    rows_duplicate: int
+    rows_failed: int
+    warnings: list[str] | None
+    ai_status: str | None
+    created_at: dt.datetime
+    completed_at: dt.datetime | None
+
+
+class ImportDetailOut(ImportBatchOut):
+    errors: list[ImportErrorOut] = []
+    rows: list[ImportRowOut] = []
+
+
+class ImportRowUpdate(BaseModel):
+    """Any field the user changed on the review screen. Only fields that are
+    sent are changed."""
+
+    occurred_on: dt.date | None = None
+    description: Annotated[str, Field(min_length=1, max_length=500)] | None = None
+    amount: PositiveMoney | None = None
+    type: Literal["income", "expense"] | None = None
+    category_id: uuid.UUID | None = None
+    include: bool | None = None
+    # When the category changes: also change rows in this import with the
+    # same shop/description that the user hasn't changed themselves.
+    apply_to_similar: bool = False
+
+    @field_validator("description")
+    @classmethod
+    def strip_description(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = " ".join(v.split())
+        if not v:
+            raise ValueError("Please describe the transaction.")
+        return v
+
+    @field_validator("occurred_on")
+    @classmethod
+    def sensible_date(cls, v: dt.date | None) -> dt.date | None:
+        if v is not None and (v.year < 1970 or v > dt.date.today() + dt.timedelta(days=1)):
+            raise ValueError("Please enter a real date that isn't in the future.")
+        return v
+
+
+class ImportBulkInclude(BaseModel):
+    include: bool
+    which: Literal["all", "duplicates", "ready"] = "all"

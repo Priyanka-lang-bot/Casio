@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:3000"
     email_mode: str = "console"
 
+    # AI (optional). Without a key, CASIO uses its built-in keyword rules.
+    anthropic_api_key: str = ""
+    ai_model: str = "claude-opus-5-5"
+
     session_cookie_name: str = "casio_session"
     # "Remember me" keeps you signed in for 30 days; otherwise 12 hours
     # and the cookie disappears when the browser closes.

@@ -46,6 +46,7 @@ class ParseResult:
     rows: list[ParsedRow]
     errors: list[tuple[int | None, str, str]]  # (row number, raw text, message)
     needs_ocr: bool = False  # scanned PDF with no text layer
+    warnings: list[str] = field(default_factory=list)  # file-level notes shown above the review table
 
 
 class Importer(Protocol):
