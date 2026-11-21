@@ -221,7 +221,7 @@ function EditRuleForm({ rule, categories, onClose, onSave }: { rule: Rule; categ
         if (ok) onClose();
       }}
     >
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="rule-match">Match</Label>
           <NativeSelect id="rule-match" value={matchType} onChange={(e) => setMatchType(e.target.value as Rule["match_type"])}>

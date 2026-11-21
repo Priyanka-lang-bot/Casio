@@ -86,7 +86,7 @@ export function WhatIfView() {
         description="Try a change before you make it. CASIO starts from your usual month, applies the change and shows the effect on your savings and goals."
       />
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><SparklesIcon className="size-4" /> Ask in your own words</CardTitle>
@@ -182,7 +182,7 @@ function ResultView({ r }: { r: SimResult }) {
         </CardHeader>
         <CardContent className="space-y-4">
           {r.problems.length > 0 && <Alert kind="info">{r.problems.join(" ")}</Alert>}
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Compare label="Income per month" a={r.baseline.income} b={r.scenario.income} c={c} />
             <Compare label="Spending per month" a={r.baseline.spending} b={r.scenario.spending} c={c} invert />
             <Compare label="Left over per month" a={r.baseline.surplus} b={r.scenario.surplus} c={c} />

@@ -108,7 +108,7 @@ export function TransactionsView({ ruleId = "" }: { ruleId?: string }) {
       />
 
       <Card className="mb-4 py-4">
-        <CardContent className="grid gap-3 px-4 sm:grid-cols-2 lg:grid-cols-4">
+        <CardContent className="grid grid-cols-1 gap-3 px-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-1.5">
             <Label htmlFor="f-q">Search</Label>
             <Input id="f-q" placeholder="Description…" value={filters.q} onChange={(e) => setFilter("q", e.target.value)} />

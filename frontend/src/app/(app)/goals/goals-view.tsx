@@ -126,7 +126,7 @@ export function GoalsView() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {data.goals.map((g) => {
             const s = STATE[g.state];
             return (
@@ -225,7 +225,7 @@ function GoalDialog({ editing, currency, onClose, onSaved }: { editing: { id?: s
         >
           {error && <Alert kind="error">{error}</Alert>}
           <Field label="Goal name" error={errors.name}><Input value={f.name} onChange={set("name")} placeholder="e.g. New laptop" required /></Field>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Type" error={errors.kind}>
               <NativeSelect value={f.kind} onChange={set("kind")}>
                 {Object.entries(GOAL_KINDS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}

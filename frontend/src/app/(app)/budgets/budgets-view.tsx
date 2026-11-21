@@ -146,7 +146,7 @@ export function BudgetsView() {
         </Card>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {data.suggestions.length > 0 && (
           <Card>
             <CardHeader>
