@@ -22,7 +22,9 @@ from app.config import get_settings
 from app.db import Base
 import app.models  # noqa: F401  (registers the tables)
 
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+_s = get_settings()
+# Escape % so ConfigParser doesn't treat it as interpolation (passwords may contain it).
+config.set_main_option("sqlalchemy.url", (_s.database_url_unpooled or _s.database_url).replace("%", "%%"))
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
@@ -62,10 +64,19 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    # app/migrate.py passes in a connection it already holds (with a lock).
+    existing = config.attributes.get("connection")
+    if existing is not None:
+        context.configure(connection=existing, target_metadata=target_metadata)
+        with context.begin_transaction():
+            context.run_migrations()
+        return
+
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args={"prepare_threshold": None},
     )
 
     with connectable.connect() as connection:

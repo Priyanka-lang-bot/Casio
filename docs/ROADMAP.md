@@ -109,7 +109,7 @@ account an import belongs to.
 
 - No real email sending yet (console mode). To go live, add an email
   provider in `app/email.py`.
-- Data export and account deletion (Settings) are planned for Phase 6.
+- Data export and account deletion are in Settings.
 - The login attempt limiter is in memory, which is fine for one server.
 - shadcn/ui components were added by hand (`src/components/ui/`) because the
   shadcn download site was blocked from the build machine; they are the
@@ -148,3 +148,24 @@ account an import belongs to.
 | Tests | 86 backend tests (21 new) + 25-check browser test |
 
 Demo data: `docs/samples/sample-6-months.csv` (June to November 2026).
+
+
+## 9. Phases 4-6 status: planning, coaching, polish (done and tested)
+
+| Item | Status |
+|---|---|
+| Budgets: per-category monthly limits, spent / left, month-end forecast, suggestions from usual spending | ✅ `app/planning.py`, Budgets page |
+| Goals: target, saved, date, monthly amount, progress, forecast finish, needed per month, contributions | ✅ Goals page |
+| Living Money Model: actual vs estimate vs planned vs forecast kept apart; monthly snapshots | ✅ `financial_snapshots`, Money Model page |
+| What-if simulator: income / category / new cost / extra saving / one-off; 12-month path; goal effects; plain-language explanation | ✅ deterministic; question parsing by AI (if on) or built-in rules |
+| Proactive nudges: budget near/over/pace, spending spikes, spending above income, goals behind, goals unaffordable, low emergency fund, uncategorised transactions, good month | ✅ `app/nudges.py`, on Overview and Budgets, dismissible |
+| Monthly reports: totals vs last month, categories, budgets, goals, subscriptions, largest expenses, highlights, suggestions | ✅ AI summary when on, template otherwise; print to PDF |
+| AI coach: Claude with 8 read-only tools over the user's data; built-in helper when AI is off | ✅ `app/coach.py` |
+| Guardrails: question and answer checks block specific securities advice | ✅ `app/guardrails.py` |
+| Settings: change name and password, export all data (JSON), delete account | ✅ |
+| One-click sample data | ✅ Overview |
+| Tests | 99 backend tests + 3 browser tests (19 + 25 + 33 checks) |
+
+Known limits: no email provider (password reset links are logged on the
+server), OCR for scanned PDFs not included, the AI features need an
+`ANTHROPIC_API_KEY`, and the rate limiter is per server instance.

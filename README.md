@@ -2,15 +2,32 @@
 
 Adaptive AI personal finance coach. *Don't just track money. Understand it.*
 
-This is the real application (no landing page). Phase 1 is done: accounts,
-login, the app shell with all 12 sections, the financial profile, manual
-transactions and a basic dashboard. Phase 2 adds **Smart Import**: upload a
-CSV or PDF bank statement or paste bank SMS, check and fix what CASIO found,
-then save. Phase 3 adds **Learned Rules** (fix a category once, and CASIO
-asks whether to remember it for similar payments) and **Subscriptions**
-(regular payments found automatically, with price-change and missed-payment
-alerts). See [docs/ROADMAP.md](docs/ROADMAP.md)
-for what's built, what's next and how it maps to the competition requirements.
+This is the real application (no landing page). Every section works:
+
+| Section | What it does |
+|---|---|
+| Overview | This month's money in/out, 6-month chart, categories, proactive nudges, "Try with sample data" |
+| Transactions | Add, edit, delete, search, filter; shows how each category was chosen |
+| Import Statements | CSV, PDF and bank SMS; review and fix before saving; duplicates flagged; undo an import |
+| Learned Rules | Fix a category once, CASIO asks whether to remember it; edit, pause, undo rules |
+| Budgets | Monthly limits per category, spent/left, month-end forecast, suggested amounts |
+| Subscriptions | Regular payments found automatically, price rises, missed payments, "do you still use it?" |
+| Financial Profile | Income, regular costs, assets, debts (your estimates) |
+| Money Model | One picture combining actuals, estimates, plans and forecasts, with monthly snapshots |
+| Goals | Targets, contributions, progress, "on track / behind" with the amount needed |
+| What-If Simulator | Ask in plain words or build a scenario; effect on savings and goals |
+| Monthly Reports | Review of any month with highlights and suggestions; AI-written summary when AI is on |
+| AI Finance Coach | Answers from your real data via tools; refuses specific investment picks |
+| Settings | Name, password, currency, download all data, delete account |
+
+All money maths happens in deterministic backend code (`backend/app/finance.py`,
+`backend/app/planning.py`). The AI only reads results through tools and explains
+them. Without an `ANTHROPIC_API_KEY`, CASIO still works: built-in rules
+categorise transactions, parse what-if questions and answer common coach
+questions, and the app says when AI is off.
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for how it maps to the competition
+requirements and [docs/DEPLOY.md](docs/DEPLOY.md) for how production is set up.
 
 ## What's inside
 
@@ -41,7 +58,7 @@ psql -U postgres -c "CREATE DATABASE casio_test OWNER casio;"   # used by the te
 cd backend
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt   # app + test tools
 cp .env.example .env               # then edit values if needed
 alembic upgrade head               # creates/updates tables; never deletes data
 uvicorn app.main:app --reload --port 8000
@@ -80,10 +97,11 @@ printed in the backend terminal (terminal 1). Copy the link from there.
 ## Run the tests
 
 ```bash
-cd backend && source .venv/bin/activate && pytest     # 86 tests
+cd backend && source .venv/bin/activate && pytest     # 99 tests
 cd frontend && npx tsc --noEmit && npm run lint && npm run build
 node docs/e2e-import-test.js                           # browser tests (app must be running)
 node docs/e2e-learning-test.js
+node docs/e2e-planning-test.js                         # BASE_URL=https://... to test a live site
 ```
 
 ## Rules this codebase follows
