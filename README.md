@@ -4,7 +4,9 @@ Adaptive AI personal finance coach. *Don't just track money. Understand it.*
 
 This is the real application (no landing page). Phase 1 is done: accounts,
 login, the app shell with all 12 sections, the financial profile, manual
-transactions and a basic dashboard. See [docs/ROADMAP.md](docs/ROADMAP.md)
+transactions and a basic dashboard. Phase 2 adds **Smart Import**: upload a
+CSV or PDF bank statement or paste bank SMS, check and fix what CASIO found,
+then save. See [docs/ROADMAP.md](docs/ROADMAP.md)
 for what's built, what's next and how it maps to the competition requirements.
 
 ## What's inside
@@ -55,14 +57,23 @@ npm run dev
 
 Open http://localhost:3000 and create an account.
 
+**Try Smart Import:** go to *Import Statements* and use the sample files
+linked under the upload box (also in `docs/samples/`).
+
+**Optional AI categorisation:** add `ANTHROPIC_API_KEY=...` to `backend/.env`
+and restart the backend. Without it, CASIO uses its built-in keyword rules and
+says so on the review screen. Only the description text (with numbers, UPI ids
+and emails removed) is ever sent to the AI.
+
 **Forgot password:** no email service is set up yet, so the reset email is
 printed in the backend terminal (terminal 1). Copy the link from there.
 
 ## Run the tests
 
 ```bash
-cd backend && source .venv/bin/activate && pytest     # 27 tests
+cd backend && source .venv/bin/activate && pytest     # 65 tests
 cd frontend && npx tsc --noEmit && npm run lint && npm run build
+node docs/e2e-import-test.js                           # browser test (app must be running)
 ```
 
 ## Rules this codebase follows

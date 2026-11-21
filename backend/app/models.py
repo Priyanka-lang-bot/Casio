@@ -226,6 +226,10 @@ class ImportBatch(Base):
     rows_failed: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # File-level notes for the review screen ("treated every row as money out", ...)
+    warnings: Mapped[list | None] = mapped_column(JSONB)
+    # Was AI used to categorise? 'used' | 'not_configured' | 'failed' | 'not_needed'
+    ai_status: Mapped[str | None] = mapped_column(String(20))
 
 
 class ImportError(Base):
@@ -236,6 +240,45 @@ class ImportError(Base):
     row_number: Mapped[int | None] = mapped_column(Integer)
     raw_text: Mapped[str | None] = mapped_column(Text)
     message: Mapped[str] = mapped_column(String(500))
+
+
+class ImportRow(Base):
+    """A transaction found in an uploaded file, waiting for the user to
+    review it. Nothing here counts in totals until the user confirms the
+    import, which copies the ticked rows into `transactions`."""
+
+    __tablename__ = "import_rows"
+    __table_args__ = (
+        CheckConstraint("amount IS NULL OR amount > 0", name="amount_positive"),
+        CheckConstraint("type IS NULL OR type IN ('income','expense')", name="type_valid"),
+        CheckConstraint("duplicate_kind IS NULL OR duplicate_kind IN ('exact','possible','in_file')", name="duplicate_kind_valid"),
+        Index("ix_import_rows_batch_row", "batch_id", "position"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    batch_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("import_batches.id", ondelete="CASCADE"))
+    user_id: Mapped[uuid.UUID] = owner_column()
+    position: Mapped[int] = mapped_column(Integer)  # order in the file
+    row_number: Mapped[int | None] = mapped_column(Integer)  # line (CSV), page (PDF) or message (SMS)
+    raw_text: Mapped[str] = mapped_column(Text)
+    occurred_on: Mapped[date | None] = mapped_column(Date)
+    description: Mapped[str] = mapped_column(String(500))
+    merchant: Mapped[str | None] = mapped_column(String(200))
+    amount: Mapped[Decimal | None] = mapped_column(Money)
+    type: Mapped[str | None] = mapped_column(String(10))
+    balance_after: Mapped[Decimal | None] = mapped_column(Money)
+    category_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("categories.id", ondelete="SET NULL"))
+    category_source: Mapped[str | None] = mapped_column(String(10))
+    category_confidence: Mapped[Decimal | None] = mapped_column(Numeric(4, 3))
+    category_reason: Mapped[str | None] = mapped_column(String(300))
+    problems: Mapped[list] = mapped_column(JSONB, default=list)
+    duplicate_kind: Mapped[str | None] = mapped_column(String(10))
+    duplicate_of_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("transactions.id", ondelete="SET NULL"))
+    duplicate_note: Mapped[str | None] = mapped_column(String(300))
+    include: Mapped[bool] = mapped_column(default=True)
+    edited: Mapped[bool] = mapped_column(default=False)
+
+    category: Mapped[Category | None] = relationship(lazy="joined")
 
 
 class Transaction(Timestamps, Base):

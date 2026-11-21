@@ -35,6 +35,29 @@ export async function api<T>(path: string, body?: unknown, method?: Method): Pro
   return { ok: false, status: res.status, message, fields: json?.fields ?? {} };
 }
 
+// File uploads (multipart). Same result shape and error handling as api().
+export async function apiUpload<T>(path: string, form: FormData): Promise<ApiResult<T>> {
+  let res: Response;
+  try {
+    res = await fetch(`/api${path}`, { method: "POST", body: form, credentials: "same-origin" });
+  } catch {
+    return { ok: false, status: 0, message: "Can't reach CASIO right now. Check your connection and try again.", fields: {} };
+  }
+  const json = await res.json().catch(() => null);
+  if (res.ok) return { ok: true, data: json as T };
+  if (res.status === 401 && typeof window !== "undefined") {
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+  }
+  const message =
+    typeof json?.detail === "string"
+      ? json.detail
+      : res.status === 413
+        ? "The file is too big. The limit is 10 MB."
+        : "The upload didn't work. Please try again.";
+  return { ok: false, status: res.status, message, fields: {} };
+}
+
 export type User = { id: string; email: string; full_name: string };
 
 // Only allow redirects to pages inside CASIO (blocks "?next=https://evil.com").

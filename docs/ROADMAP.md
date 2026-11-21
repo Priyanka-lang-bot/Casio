@@ -65,8 +65,8 @@ Browser ──► Next.js (frontend/, port 3000)
 
 | # | Requirement | Where it will live | Phase |
 |---|---|---|---|
-| 1 | PDF / CSV / SMS ingestion | `app/importers/`, Import Statements page | 2 (tables ready) |
-| 2 | Automatic categorisation | importer pipeline: rules → keywords → AI; `category_source/confidence/reason` columns exist | 2 |
+| 1 | PDF / CSV / SMS ingestion | ✅ `app/importers/`, Import Statements page | 2 |
+| 2 | Automatic categorisation | ✅ keyword rules + optional AI (`app/ai.py`), confidence and reason on every row | 2 |
 | 3 | Learning correction loop | `categorization_rules` table, "apply to similar?" prompt, undo | 3 |
 | 4 | Recurring payments & subscriptions | detection job over transactions, Subscriptions page | 3 |
 | 5 | Persistent financial profile | ✅ Financial Profile (Phase 1); grows into Money Model with snapshots | 1 → 4 |
@@ -84,15 +84,27 @@ and avoids guessing at columns.
 - Phase 4: `budgets`, `financial_goals`, `goal_contributions`, `financial_snapshots`, `forecasts`, `financial_scenarios`
 - Phase 5: `financial_nudges`, `monthly_reports`, `ai_conversations`, `ai_insights`
 
-## 6. Next: Phase 2, Smart Import
+## 6. Phase 2 status: Smart Import (done and tested)
 
-The detailed plan is in `backend/app/importers/README.md`. In short: upload →
-safety checks → parse (CSV column mapping, PDF text/tables, SMS templates) →
-categorise → **review screen** where the user fixes anything and un-ticks
-duplicates → confirm. AI never invents a missing date or amount.
+How it works is in `backend/app/importers/README.md`.
 
-Needs: `pandas`, `pdfplumber`, and (for the AI step) an LLM API key in
-`backend/.env`. Without a key, categorisation falls back to keyword rules.
+| Item | Status |
+|---|---|
+| CSV: preamble lines, `,` `;` tab `|`, many column names, Debit/Credit or Amount (+Dr/Cr), day-first dates | ✅ |
+| PDF: ruled tables, or text lines with Debit/Credit columns or running balance; password and damaged files explained | ✅ |
+| Scanned PDFs detected and explained (OCR is a later add-on) | ✅ |
+| SMS: paste or .txt upload, OTPs/offers skipped, balance never mistaken for the amount | ✅ |
+| Review before save: edit date, description, amount, in/out, category; untick rows; filters | ✅ |
+| Duplicates: exact matches with saved transactions unticked; same date+amount flagged; re-uploaded file warned | ✅ |
+| Categorisation with confidence, reason and "Please check" below 60% | ✅ |
+| "Change similar rows too?" within one import (cross-import learning is Phase 3) | ✅ |
+| Provenance: source, import batch, original text, balance, dedupe fingerprint on every saved transaction | ✅ |
+| Undo a whole import | ✅ |
+| Optional AI (Claude) for uncertain rows, privacy-scrubbed, with rule fallback | ✅ (needs `ANTHROPIC_API_KEY`) |
+| Tests | 65 backend tests (38 new) + 19-check browser test |
+
+Not yet: OCR for scanned PDFs, Excel files (save as CSV), choosing which bank
+account an import belongs to.
 
 ## 7. Known gaps and notes
 

@@ -52,3 +52,47 @@ export type Overview = {
   recent_transactions: Transaction[];
   plan: ProfileSummary;
 };
+
+export type ImportRow = {
+  id: string;
+  position: number;
+  row_number: number | null;
+  raw_text: string;
+  occurred_on: string | null;
+  description: string;
+  merchant: string | null;
+  amount: string | null;
+  type: "income" | "expense" | null;
+  balance_after: string | null;
+  category_id: string | null;
+  category_name: string | null;
+  category_source: "keyword" | "ai" | "user" | null;
+  category_confidence: number | null;
+  category_reason: string | null;
+  needs_check: boolean;
+  problems: string[];
+  duplicate_kind: "exact" | "possible" | "in_file" | null;
+  duplicate_note: string | null;
+  include: boolean;
+  edited: boolean;
+};
+
+export type ImportBatch = {
+  id: string;
+  source_type: "csv" | "pdf" | "sms";
+  original_filename: string | null;
+  status: "processing" | "needs_review" | "completed" | "failed" | "cancelled";
+  rows_found: number;
+  rows_imported: number;
+  rows_duplicate: number;
+  rows_failed: number;
+  warnings: string[] | null;
+  ai_status: "used" | "not_configured" | "failed" | "not_needed" | null;
+  created_at: string;
+  completed_at: string | null;
+};
+
+export type ImportDetail = ImportBatch & {
+  errors: { row_number: number | null; raw_text: string | null; message: string }[];
+  rows: ImportRow[];
+};
