@@ -1,35 +1,38 @@
-# Smart Import Engine (Phase 2 plan)
-
-The database tables are ready (`import_batches`, `import_errors`, and the
-provenance columns on `transactions`). This folder holds the shared types;
-the parsers are built in Phase 2.
+# Smart Import Engine
 
 ## Flow
 
-1. **Upload** `POST /api/imports` (file or pasted SMS text).
-   Check size (10 MB), extension and file signature *before* parsing.
-   Hash the file (SHA-256) and warn if this exact file was imported before.
-   Create an `import_batches` row with status `processing`.
-2. **Parse** with the matching importer (`csv.py`, `pdf.py`, `sms.py`), each
-   returning `ParseResult` (see `base.py`).
-   - CSV: detect delimiter and header row; map columns by many possible names
-     (Date / Txn Date / Value Date, Debit / Withdrawal, Credit / Deposit,
-     Amount + Dr/Cr, Balance); try several date formats (DD/MM/YYYY first for
-     Indian banks, then ISO, then MM/DD/YYYY only when unambiguous).
-   - PDF: `pdfplumber` text and table extraction. No text layer means
-     `needs_ocr = True` and a clear message (OCR is a later add-on).
-   - SMS: regex templates for common bank formats ("debited by Rs 450.00 ...",
-     "INR 1,200 credited ..."), with each message as one row.
-   Amounts: strip ₹ / Rs / INR / commas, handle "(450.00)" and "450.00 Dr".
-3. **Categorise** each row: learned user rules first, then keyword rules,
-   then the AI model for leftovers (only the description is sent, never names
-   or account numbers). Store `category_source`, `category_confidence` and
-   `category_reason`; below 0.6 confidence is flagged "please check".
-4. **Review** status `needs_review`. The user sees every row, fixes dates,
-   amounts or categories, and un-ticks duplicates (`dedupe_hash` matches).
-   AI never fills in a missing date or amount; the user must.
-5. **Confirm** `POST /api/imports/{id}/confirm` saves the ticked rows in one
-   database transaction with `source`, `import_batch_id` and `raw_text`, and
-   updates the batch counts. Status becomes `completed`.
+1. **Upload** `POST /api/imports` with a file (CSV, PDF, `.txt` of SMS) or
+   `sms_text`. `pipeline.detect_source` checks size (10 MB), extension *and*
+   contents (a renamed file is refused) before parsing. Files are read in
+   memory and not kept.
+2. **Parse** with `csv_importer.py`, `pdf_importer.py` or `sms_importer.py`,
+   each returning `ParseResult` (`base.py`). Values come from
+   `normalize.py`, which returns `None` when unsure. A row with a missing
+   date, amount or direction is shown with a problem for the user to fix;
+   nothing is invented.
+3. **Check duplicates** (`pipeline.mark_duplicates`) against saved
+   transactions in the same date range (manual ones too):
+   exact match → unticked; same date + amount → flagged, still ticked;
+   repeated within the file → flagged, still ticked (two coffees can be real).
+4. **Categorise** (`categorize.py`): keyword rules with a confidence. Rows
+   under 0.8 go to the AI (`app/ai.py`) if `ANTHROPIC_API_KEY` is set; the AI
+   only sees a privacy-scrubbed description and direction, and its answer
+   is used only if it fits money in/out and is more confident. Under 0.6 is
+   shown as "Please check". The batch records `ai_status`.
+5. **Review** rows live in `import_rows` (status `needs_review`).
+   `PATCH /api/imports/{id}/rows/{row}` edits a row; problems are recomputed.
+   `apply_to_similar` changes the same shop's other rows in this import.
+6. **Confirm** `POST /api/imports/{id}/confirm` refuses if a ticked row still
+   has problems, then saves all ticked rows in one database transaction with
+   `source`, `import_batch_id`, `raw_text`, `balance_after`, `dedupe_hash`
+   and the category source/confidence/reason.
+7. **Undo** `DELETE /api/imports/{id}` cancels a pending import, or deletes
+   the transactions of a saved one.
 
-Uploaded files are processed in memory and not kept after parsing.
+## Adding a bank format
+
+Most CSVs work through `COLUMN_NAMES` in `csv_importer.py`: add the bank's
+heading to the right list. For SMS, add a keyword to `DEBIT`/`CREDIT` or a
+pattern to `MERCHANT` in `sms_importer.py`. Add a test in
+`tests/test_import.py` with a real (anonymised) example.

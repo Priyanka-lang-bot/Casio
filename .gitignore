@@ -19,3 +19,4 @@ frontend/next-env.d.ts
 backend/uploads/
 
 .DS_Store
+e2e-screenshots/

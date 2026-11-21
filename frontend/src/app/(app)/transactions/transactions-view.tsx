@@ -59,7 +59,7 @@ export function TransactionsView() {
     <>
       <PageHeader
         title="Transactions"
-        description="Every payment in and out. Add them by hand for now; statement import is coming next."
+        description="Every payment in and out. Add them by hand, or import a bank statement."
         action={
           <Button
             onClick={() => {
@@ -208,7 +208,7 @@ export function TransactionsView() {
         }}
       />
       <p className="text-muted-foreground mt-6 text-center text-xs">
-        Have a bank statement? <Link href="/import" className="underline">Statement import</Link> is the next feature being built.
+        Have a bank statement? <Link href="/import" className="underline">Import it</Link> instead of typing every payment.
       </p>
     </>
   );
