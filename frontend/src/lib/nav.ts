@@ -10,17 +10,19 @@ import {
   Settings,
   Target,
   Upload,
+  WandSparkles,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon };
 
-// The 12 sections of CASIO, in sidebar order.
+// The sections of CASIO, in sidebar order.
 export const NAV: NavItem[] = [
   { href: "/overview", label: "Overview", icon: LayoutDashboard },
   { href: "/transactions", label: "Transactions", icon: Receipt },
   { href: "/import", label: "Import Statements", icon: Upload },
+  { href: "/rules", label: "Learned Rules", icon: WandSparkles },
   { href: "/budgets", label: "Budgets", icon: PiggyBank },
   { href: "/subscriptions", label: "Subscriptions", icon: CalendarClock },
   { href: "/profile", label: "Financial Profile", icon: UserRound },

@@ -16,7 +16,9 @@ from app.deps import get_current_user
 from app.importers.base import MAX_SMS_CHARS, MAX_UPLOAD_BYTES, dedupe_hash, normalise_description
 from app.importers.categorize import REVIEW_BELOW
 from app.importers.pipeline import ImportRejected, compute_problems, detect_source, start_import
-from app.models import Category, ImportBatch, ImportError, ImportRow, Transaction, User
+from app.learning import record_correction, update_confidence
+from app.models import CategorizationRule, Category, ImportBatch, ImportError, ImportRow, Transaction, User
+from app.recurring import detect_recurring
 from app.routers.profile import get_or_create_profile
 from app.routers.transactions import _check_category
 from app.schemas import ImportBatchOut, ImportBulkInclude, ImportDetailOut, ImportErrorOut, ImportRowOut, ImportRowUpdate
@@ -115,6 +117,8 @@ def update_row(
         if data.category_id is not None:
             _check_category(db, user, data.category_id, row.type or "expense")
         if data.category_id != row.category_id or row.category_source != "user":
+            record_correction(db, user, row, row.category_id, row.category_source, data.category_id)
+            row.rule_id = None
             row.category_id = data.category_id
             row.category = db.get(Category, data.category_id) if data.category_id else None
             row.category_source = "user" if data.category_id else None
@@ -129,10 +133,12 @@ def update_row(
                     o.category_id, o.category = row.category_id, row.category
                     o.category_source, o.category_confidence = "user", None
                     o.category_reason = f"Changed with “{row.description[:60]}”."
+                    o.rule_id = None
                     changed.append(o)
     if row.category_id and row.category and row.category.kind not in ("transfer", row.type):
         # Money in/out was flipped and the old category no longer fits.
         row.category_id, row.category, row.category_source, row.category_confidence = None, None, None, None
+        row.rule_id = None
         row.category_reason = "Please choose a category that matches money in/out."
     row.problems = compute_problems(row)
     audit(db, "import.row_update", user.id, "import_batch", batch.id)
@@ -167,6 +173,7 @@ def confirm(batch_id: uuid.UUID, user: User = Depends(get_current_user), db: Ses
             f"{n} ticked row{'s' if n != 1 else ''} still need{'' if n != 1 else 's'} fixing (missing date, amount or money in/out). Fix {'them' if n != 1 else 'it'} or untick {'them' if n != 1 else 'it'}.",
         )
     currency = get_or_create_profile(db, user).currency
+    used: dict[uuid.UUID, int] = {}
     for r in rows:
         db.add(
             Transaction(
@@ -175,9 +182,17 @@ def confirm(batch_id: uuid.UUID, user: User = Depends(get_current_user), db: Ses
                 raw_text=r.raw_text, balance_after=r.balance_after,
                 dedupe_hash=dedupe_hash(r.occurred_on, r.amount, r.type, r.description),
                 category_id=r.category_id, category_source=r.category_source,
-                category_confidence=r.category_confidence, category_reason=r.category_reason,
+                category_confidence=r.category_confidence, category_reason=r.category_reason, rule_id=r.rule_id,
             )
         )
+        if r.rule_id:
+            used[r.rule_id] = used.get(r.rule_id, 0) + 1
+    for rule_id, n in used.items():
+        rule = db.get(CategorizationRule, rule_id)
+        if rule:
+            rule.times_applied += n
+            rule.last_applied_at = datetime.now(UTC)
+            update_confidence(rule)
     batch.rows_imported = len(rows)
     batch.status = "completed"
     batch.completed_at = datetime.now(UTC)
@@ -185,6 +200,8 @@ def confirm(batch_id: uuid.UUID, user: User = Depends(get_current_user), db: Ses
     # original text and point back to this import.
     db.execute(delete(ImportRow).where(ImportRow.batch_id == batch.id))
     audit(db, "import.confirm", user.id, "import_batch", batch.id, saved=len(rows))
+    db.flush()
+    detect_recurring(db, user)
     db.commit()
     return batch
 
@@ -205,6 +222,9 @@ def cancel_or_undo(batch_id: uuid.UUID, user: User = Depends(get_current_user), 
     was = batch.status
     batch.status = "cancelled"
     audit(db, "import.undo" if was == "completed" else "import.cancel", user.id, "import_batch", batch.id, removed=removed)
+    if removed:
+        db.flush()
+        detect_recurring(db, user)
     db.commit()
     return batch
 

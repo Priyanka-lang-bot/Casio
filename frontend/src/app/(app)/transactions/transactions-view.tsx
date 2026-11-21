@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { PencilIcon, PlusIcon, ReceiptIcon, Trash2Icon } from "lucide-react";
+import { PencilIcon, PlusIcon, ReceiptIcon, SparklesIcon, Trash2Icon, WandSparklesIcon } from "lucide-react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Alert } from "@/components/form";
+import { LearnDialog, type LearnResult, type LearnTarget } from "@/components/learn-dialog";
 import { PageHeader } from "@/components/page-header";
 import { TransactionDialog } from "@/components/transaction-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -15,20 +16,23 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { api } from "@/lib/api";
 import { formatDate, formatMoney } from "@/lib/format";
-import type { Category, Transaction } from "@/lib/types";
+import type { Category, RuleSave, Transaction } from "@/lib/types";
 
 const PAGE = 50;
 
-export function TransactionsView() {
+export function TransactionsView({ ruleId = "" }: { ruleId?: string }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<Transaction[] | null>(null);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState("");
-  const [filters, setFilters] = useState({ type: "", category_id: "", month: "", q: "" });
+  const [filters, setFilters] = useState({ type: "", category_id: "", month: "", q: "", rule_id: ruleId });
   const [offset, setOffset] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState<Transaction | null>(null);
+  const [learn, setLearn] = useState<LearnTarget | null>(null);
+  const [made, setMade] = useState<RuleSave | null>(null);
+  const [notice, setNotice] = useState("");
 
   const load = useCallback(async () => {
     const params = new URLSearchParams({ limit: String(PAGE), offset: String(offset) });
@@ -48,6 +52,37 @@ export function TransactionsView() {
     const t = setTimeout(load, filters.q ? 250 : 0); // wait for typing to pause
     return () => clearTimeout(t);
   }, [load, filters.q]);
+
+  // The user picked a new category: save it, then ask whether to remember it.
+  async function changeCategory(t: Transaction, categoryId: string) {
+    const body = { type: t.type, amount: t.amount, occurred_on: t.occurred_on, description: t.description, notes: t.notes, category_id: categoryId || null };
+    const res = await api<Transaction>(`/transactions/${t.id}`, body, "PUT");
+    if (!res.ok) return setError(res.message);
+    setItems((list) => list && list.map((x) => (x.id === t.id ? res.data : x)));
+    askToLearn(t, res.data);
+  }
+
+  function askToLearn(before: Transaction | null, after?: Transaction) {
+    if (!before || !after || !after.category_id || before.category_id === after.category_id) return;
+    setLearn({ kind: "transaction", id: after.id, description: after.description, categoryId: after.category_id, fromCategory: before.category_name });
+  }
+
+  function learned(result: LearnResult) {
+    setLearn(null);
+    if (result.choice === "rule") {
+      setMade(result.saved);
+      setNotice("");
+      load();
+    }
+  }
+
+  async function undoRule() {
+    if (!made) return;
+    const r = await api<{ reverted_transactions: number }>(`/rules/${made.rule.id}`, undefined, "DELETE");
+    setMade(null);
+    if (r.ok) setNotice(`Rule removed. ${r.data.reverted_transactions} transaction${r.data.reverted_transactions === 1 ? "" : "s"} went back to their earlier category.`);
+    load();
+  }
 
   const setFilter = (k: keyof typeof filters, v: string) => {
     setOffset(0);
@@ -105,6 +140,26 @@ export function TransactionsView() {
       </Card>
 
       {error && <Alert kind="error">{error}</Alert>}
+      {filters.rule_id && (
+        <div className="mb-4 flex items-center gap-2 text-sm">
+          <Badge variant="success"><WandSparklesIcon className="size-3" /> Showing transactions one of your rules categorised</Badge>
+          <Button size="sm" variant="ghost" onClick={() => setFilter("rule_id", "")}>Show all</Button>
+        </div>
+      )}
+      {made && (
+        <div className="bg-success/10 text-success mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-current/20 px-4 py-3 text-sm" role="status">
+          <WandSparklesIcon className="size-4 shrink-0" />
+          <span className="flex-1">
+            {made.replaced ? "Rule updated" : "Rule made"}: {made.rule.match_type === "merchant" ? "shop" : "descriptions with"} “{made.rule.pattern}” → {made.rule.category_name}.{" "}
+            {made.changed_transactions > 0
+              ? `${made.changed_transactions} earlier transaction${made.changed_transactions === 1 ? " was" : "s were"} updated.`
+              : "It will be used from now on."}
+          </span>
+          <Button size="sm" variant="outline" onClick={undoRule}>Undo</Button>
+          <Button size="sm" variant="ghost" asChild><Link href="/rules">See rules</Link></Button>
+        </div>
+      )}
+      {notice && <div className="mb-4"><Alert kind="info">{notice}</Alert></div>}
 
       {items === null ? (
         <p className="text-muted-foreground py-10 text-center text-sm">Loading…</p>
@@ -115,7 +170,7 @@ export function TransactionsView() {
             {filtering ? (
               <>
                 <p className="font-medium">No transactions match these filters.</p>
-                <Button variant="outline" onClick={() => setFilters({ type: "", category_id: "", month: "", q: "" })}>
+                <Button variant="outline" onClick={() => setFilters({ type: "", category_id: "", month: "", q: "", rule_id: "" })}>
                   Clear filters
                 </Button>
               </>
@@ -143,7 +198,20 @@ export function TransactionsView() {
                   <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
                     <span>{formatDate(t.occurred_on)}</span>
                     <span aria-hidden>·</span>
-                    {t.category_name ? <span>{t.category_name}</span> : <Badge variant="outline">No category</Badge>}
+                    <select
+                      aria-label={`Category for ${t.description}`}
+                      value={t.category_id ?? ""}
+                      onChange={(e) => changeCategory(t, e.target.value)}
+                      className="hover:border-input focus-visible:border-ring -ml-1 max-w-44 cursor-pointer rounded border border-transparent bg-transparent px-1 py-0.5 text-xs"
+                    >
+                      <option value="">No category</option>
+                      {categories
+                        .filter((c) => c.kind === "transfer" || c.kind === t.type)
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                    </select>
+                    <SourceBadge t={t} />
                     {t.source !== "manual" && <Badge variant="secondary">Imported ({t.source.toUpperCase()})</Badge>}
                   </div>
                 </div>
@@ -193,8 +261,12 @@ export function TransactionsView() {
         onOpenChange={setDialogOpen}
         categories={categories}
         editing={editing}
-        onSaved={load}
+        onSaved={(saved) => {
+          load();
+          askToLearn(editing, saved);
+        }}
       />
+      <LearnDialog target={learn} onClose={learned} />
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(o) => !o && setDeleting(null)}
@@ -212,4 +284,20 @@ export function TransactionsView() {
       </p>
     </>
   );
+}
+
+// Shows how the category was chosen, so the user can see learning at work.
+function SourceBadge({ t }: { t: Transaction }) {
+  if (!t.category_id) return null;
+  if (t.category_source === "rule")
+    return (
+      <Link href="/rules" title={t.category_reason ?? undefined}>
+        <Badge variant="success"><WandSparklesIcon className="size-3" /> Your rule</Badge>
+      </Link>
+    );
+  if (t.category_source === "ai")
+    return <Badge variant="secondary" title={t.category_reason ?? undefined}><SparklesIcon className="size-3" /> AI</Badge>;
+  if (t.category_source === "keyword" && (t.category_confidence ?? 1) < 0.6)
+    return <Badge variant="warning" title={t.category_reason ?? undefined}>Please check</Badge>;
+  return null;
 }

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.audit import audit
 from app.db import get_db
 from app.deps import get_current_user
+from app.learning import active_rules, apply_to, record_correction, resolve, update_confidence
 from app.models import Category, Transaction, User
 from app.routers.profile import get_or_create_profile
 from app.schemas import CategoryOut, TransactionIn, TransactionOut, TransactionPage, TransactionUpdate
@@ -49,6 +50,7 @@ def list_categories(user: User = Depends(get_current_user), db: Session = Depend
 def list_transactions(
     type: str | None = Query(None, pattern="^(income|expense|transfer)$"),
     category_id: uuid.UUID | None = None,
+    rule_id: uuid.UUID | None = None,
     month: str | None = Query(None, pattern=r"^\d{4}-\d{2}$", description="YYYY-MM"),
     q: str | None = Query(None, max_length=100),
     limit: int = Query(50, ge=1, le=200),
@@ -61,6 +63,8 @@ def list_transactions(
         filters.append(Transaction.type == type)
     if category_id:
         filters.append(Transaction.category_id == category_id)
+    if rule_id:
+        filters.append(Transaction.rule_id == rule_id)
     if month:
         y, m = map(int, month.split("-"))
         filters += [extract("year", Transaction.occurred_on) == y, extract("month", Transaction.occurred_on) == m]
@@ -95,6 +99,13 @@ def create_transaction(data: TransactionIn, user: User = Depends(get_current_use
         category_source="user" if data.category_id else None,
         **data.model_dump(),
     )
+    if t.category_id is None:
+        # No category picked: let the user's learned rules choose one.
+        rule = resolve(active_rules(db, user), t.description, None, t.type)
+        if rule:
+            apply_to(t, rule)
+            rule.times_applied += 1
+            update_confidence(rule)
     db.add(t)
     db.flush()
     audit(db, "transaction.create", user.id, "transaction", t.id, source="manual")
@@ -117,6 +128,7 @@ def update_transaction(
     t = _get_owned(db, user, tx_id)
     _check_category(db, user, data.category_id, data.type)
     if data.category_id != t.category_id:
+        record_correction(db, user, t, t.category_id, t.category_source, data.category_id)
         t.category_source = "user" if data.category_id else None
         t.category_confidence = None
         t.category_reason = None

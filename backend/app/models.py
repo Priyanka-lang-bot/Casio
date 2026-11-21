@@ -278,6 +278,8 @@ class ImportRow(Base):
     include: Mapped[bool] = mapped_column(default=True)
     edited: Mapped[bool] = mapped_column(default=False)
 
+    rule_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("categorization_rules.id", ondelete="SET NULL"))
+
     category: Mapped[Category | None] = relationship(lazy="joined")
 
 
@@ -325,6 +327,10 @@ class Transaction(Timestamps, Base):
     category_source: Mapped[str | None] = mapped_column(String(10))
     category_confidence: Mapped[Decimal | None] = mapped_column(Numeric(4, 3))
     category_reason: Mapped[str | None] = mapped_column(String(300))
+    # The learned rule that chose the category (category_source == 'rule')
+    rule_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("categorization_rules.id", ondelete="SET NULL", use_alter=True), index=True
+    )
 
     category: Mapped[Category | None] = relationship(lazy="joined")
 
@@ -344,3 +350,140 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
 
 
+
+
+# ---------------------------------------------------------------------------
+# Adaptive learning (Phase 3): the user's own categorisation rules
+# ---------------------------------------------------------------------------
+class CategorizationRule(Timestamps, Base):
+    """"Always put SWIGGY in Groceries." Created only when the user says a
+    correction should be reused, never silently.
+
+    match_type:
+      merchant  the shop name CASIO reads from the description starts with `pattern`
+      contains  the description contains `pattern` as whole words
+    When several rules match, the winner is: higher priority, then the more
+    specific (longer) pattern, then shop-name rules, then the newest."""
+
+    __tablename__ = "categorization_rules"
+    __table_args__ = (
+        CheckConstraint("match_type IN ('merchant','contains')", name="match_type_valid"),
+        CheckConstraint("applies_to IN ('income','expense')", name="applies_to_valid"),
+        CheckConstraint("confidence >= 0 AND confidence <= 1", name="confidence_valid"),
+        UniqueConstraint("user_id", "match_type", "pattern", "applies_to", name="uq_rules_user_key"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = owner_column()
+    category_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("categories.id", ondelete="CASCADE"))
+    match_type: Mapped[str] = mapped_column(String(10))
+    pattern: Mapped[str] = mapped_column(String(100))  # already normalised: lower case, no numbers
+    applies_to: Mapped[str] = mapped_column(String(10))  # money in or money out
+    priority: Mapped[int] = mapped_column(Integer, default=50)  # 90 high, 50 normal, 10 low
+    active: Mapped[bool] = mapped_column(default=True)
+    times_applied: Mapped[int] = mapped_column(Integer, default=0)
+    times_overridden: Mapped[int] = mapped_column(Integer, default=0)  # user changed a transaction this rule set
+    confidence: Mapped[Decimal] = mapped_column(Numeric(4, 3), default=Decimal("0.95"))
+    last_applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_from_transaction_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("transactions.id", ondelete="SET NULL"))
+
+    category: Mapped[Category] = relationship(lazy="joined")
+
+
+class RuleApplication(Base):
+    """What a transaction's category was before a rule changed it, so
+    removing or undoing the rule puts it back exactly."""
+
+    __tablename__ = "rule_applications"
+
+    transaction_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("transactions.id", ondelete="CASCADE"), primary_key=True)
+    previous_category_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("categories.id", ondelete="SET NULL"))
+    previous_source: Mapped[str | None] = mapped_column(String(10))
+    previous_confidence: Mapped[Decimal | None] = mapped_column(Numeric(4, 3))
+    previous_reason: Mapped[str | None] = mapped_column(String(300))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class CategoryCorrection(Base):
+    """Every time the user changes a category CASIO chose. Kept even when no
+    rule is made: repeated identical corrections are how CASIO notices a
+    preference worth suggesting."""
+
+    __tablename__ = "category_corrections"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = owner_column()
+    transaction_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("transactions.id", ondelete="SET NULL"))
+    description: Mapped[str] = mapped_column(String(500))
+    merchant_key: Mapped[str | None] = mapped_column(String(200), index=True)
+    tx_type: Mapped[str] = mapped_column(String(10))
+    from_category_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("categories.id", ondelete="SET NULL"))
+    to_category_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("categories.id", ondelete="SET NULL"))
+    from_source: Mapped[str | None] = mapped_column(String(10))
+    rule_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("categorization_rules.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# ---------------------------------------------------------------------------
+# Recurring payments and subscriptions (Phase 3)
+# ---------------------------------------------------------------------------
+class RecurringPayment(Timestamps, Base):
+    """A payment CASIO saw repeating at a regular interval. Found from
+    transactions (ACTUALS); the next payment date is a FORECAST."""
+
+    __tablename__ = "recurring_payments"
+    __table_args__ = (
+        CheckConstraint(_FREQ_CHECK, name="frequency_valid"),
+        CheckConstraint("kind IN ('subscription','bill','other')", name="kind_valid"),
+        CheckConstraint("status IN ('active','cancelled','not_recurring')", name="status_valid"),
+        CheckConstraint("usage IN ('unknown','using','rarely','not_using')", name="usage_valid"),
+        UniqueConstraint("user_id", "merchant_key", name="uq_recurring_user_merchant"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = owner_column()
+    merchant_key: Mapped[str] = mapped_column(String(200))
+    name: Mapped[str] = mapped_column(String(100))
+    kind: Mapped[str] = mapped_column(String(15), default="other")
+    category_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("categories.id", ondelete="SET NULL"))
+    frequency: Mapped[str] = mapped_column(String(12))
+    amount: Mapped[Decimal] = mapped_column(Money)  # latest charge
+    average_amount: Mapped[Decimal] = mapped_column(Money)
+    amount_varies: Mapped[bool] = mapped_column(default=False)  # e.g. electricity
+    first_paid_on: Mapped[date] = mapped_column(Date)
+    last_paid_on: Mapped[date] = mapped_column(Date)
+    next_expected_on: Mapped[date | None] = mapped_column(Date)
+    occurrences: Mapped[int] = mapped_column(Integer)
+    confidence: Mapped[Decimal] = mapped_column(Numeric(4, 3))
+    # [{"date": "2026-05-06", "amount": "649.00"}], oldest first
+    charges: Mapped[list] = mapped_column(JSONB, default=list)
+    # [{"date": "2026-09-06", "old": "649.00", "new": "799.00"}]
+    price_changes: Mapped[list] = mapped_column(JSONB, default=list)
+    # Things only the user can tell us
+    status: Mapped[str] = mapped_column(String(15), default="active")
+    status_changed_on: Mapped[date | None] = mapped_column(Date)
+    usage: Mapped[str] = mapped_column(String(10), default="unknown")
+    usage_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    name_edited: Mapped[bool] = mapped_column(default=False)
+
+    category: Mapped[Category | None] = relationship(lazy="joined")
+
+
+class RecurringAlert(Base):
+    __tablename__ = "recurring_alerts"
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('new','price_increase','price_decrease','unusual_amount','missed','charged_after_cancel','usage_check')",
+            name="kind_valid",
+        ),
+        UniqueConstraint("user_id", "dedupe_key", name="uq_recurring_alert_key"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = owner_column()
+    recurring_payment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("recurring_payments.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(25))
+    message: Mapped[str] = mapped_column(String(400))
+    dedupe_key: Mapped[str] = mapped_column(String(200))  # the same event never alerts twice
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

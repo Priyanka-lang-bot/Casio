@@ -234,6 +234,10 @@ class TransactionOut(BaseModel):
     source: str
     import_batch_id: uuid.UUID | None
     category_source: str | None
+    category_confidence: float | None = None
+    category_reason: str | None = None
+    rule_id: uuid.UUID | None = None
+    merchant: str | None = None
 
 
 class TransactionPage(BaseModel):
@@ -269,6 +273,7 @@ class ImportRowOut(BaseModel):
     category_confidence: float | None
     category_reason: str | None
     needs_check: bool = False  # low confidence: "please check this category"
+    rule_id: uuid.UUID | None = None
     problems: list[str]
     duplicate_kind: str | None
     duplicate_note: str | None
@@ -332,3 +337,151 @@ class ImportRowUpdate(BaseModel):
 class ImportBulkInclude(BaseModel):
     include: bool
     which: Literal["all", "duplicates", "ready"] = "all"
+
+
+# ---------------------------------------------------------------------------
+# Learned rules
+# ---------------------------------------------------------------------------
+Priority = Literal["high", "normal", "low"]
+
+
+class RulePreviewIn(BaseModel):
+    """Exactly one of transaction_id / import_row_id: the item the user just changed."""
+
+    transaction_id: uuid.UUID | None = None
+    import_row_id: uuid.UUID | None = None
+    category_id: uuid.UUID
+    match_type: Literal["merchant", "contains"] | None = None
+    pattern: Annotated[str, Field(max_length=100)] | None = None
+
+    @model_validator(mode="after")
+    def one_item(self):
+        if (self.transaction_id is None) == (self.import_row_id is None):
+            raise ValueError("Send transaction_id or import_row_id.")
+        return self
+
+
+class RuleIn(BaseModel):
+    category_id: uuid.UUID
+    match_type: Literal["merchant", "contains"]
+    pattern: Annotated[str, Field(min_length=1, max_length=100)]
+    applies_to: Literal["income", "expense"] = "expense"
+    priority: Priority = "normal"
+    apply_to_past: bool = True
+    source_transaction_id: uuid.UUID | None = None
+
+
+class RuleUpdate(BaseModel):
+    category_id: uuid.UUID | None = None
+    match_type: Literal["merchant", "contains"] | None = None
+    pattern: Annotated[str, Field(min_length=1, max_length=100)] | None = None
+    priority: Priority | None = None
+    active: bool | None = None
+
+
+class RuleConflictOut(BaseModel):
+    rule_id: uuid.UUID
+    pattern: str
+    match_type: str
+    category_name: str
+    this_wins: bool
+    transactions: int
+
+
+class RuleOut(BaseModel):
+    id: uuid.UUID
+    category_id: uuid.UUID
+    category_name: str
+    match_type: str
+    pattern: str
+    applies_to: str
+    priority: Priority
+    active: bool
+    times_applied: int
+    times_overridden: int
+    confidence: float
+    weak: bool
+    currently_applied: int = 0
+    last_applied_at: dt.datetime | None
+    created_at: dt.datetime
+    conflicts: list[RuleConflictOut] = []
+
+
+class RuleSaveOut(BaseModel):
+    rule: RuleOut
+    changed_transactions: int
+    changed_import_rows: int
+    replaced: bool = False
+
+
+class CorrectionOut(BaseModel):
+    id: uuid.UUID
+    description: str
+    from_category: str | None
+    to_category: str | None
+    from_source: str | None
+    made_rule: bool
+    created_at: dt.datetime
+
+
+# ---------------------------------------------------------------------------
+# Recurring payments and subscriptions
+# ---------------------------------------------------------------------------
+class RecurringOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    kind: str
+    category_name: str | None
+    frequency: str
+    amount: Decimal
+    average_amount: Decimal
+    amount_varies: bool
+    monthly_cost: Decimal
+    yearly_cost: Decimal
+    first_paid_on: dt.date
+    last_paid_on: dt.date
+    next_expected_on: dt.date | None  # a forecast
+    occurrences: int
+    confidence: float
+    charges: list[dict]
+    price_changes: list[dict]
+    status: str
+    state: str  # active | overdue | cancelled | not_recurring
+    usage: str
+    usage_confirmed_at: dt.datetime | None
+    explanation: str
+
+
+class RecurringAlertOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    recurring_payment_id: uuid.UUID
+    kind: str
+    message: str
+    created_at: dt.datetime
+
+
+class RecurringSummary(BaseModel):
+    basis: Literal["actual"] = "actual"
+    active_count: int
+    monthly_total: Decimal
+    yearly_total: Decimal
+    subscriptions_monthly: Decimal
+    bills_monthly: Decimal
+    not_using_yearly: Decimal  # could be saved if the user cancels what they don't use
+    unknown_usage_count: int
+
+
+class RecurringPage(BaseModel):
+    as_of: dt.date
+    currency: str
+    summary: RecurringSummary
+    items: list[RecurringOut]
+    alerts: list[RecurringAlertOut]
+
+
+class RecurringUpdate(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=100)] | None = None
+    kind: Literal["subscription", "bill", "other"] | None = None
+    status: Literal["active", "cancelled", "not_recurring"] | None = None
+    usage: Literal["unknown", "using", "rarely", "not_using"] | None = None

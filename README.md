@@ -6,7 +6,10 @@ This is the real application (no landing page). Phase 1 is done: accounts,
 login, the app shell with all 12 sections, the financial profile, manual
 transactions and a basic dashboard. Phase 2 adds **Smart Import**: upload a
 CSV or PDF bank statement or paste bank SMS, check and fix what CASIO found,
-then save. See [docs/ROADMAP.md](docs/ROADMAP.md)
+then save. Phase 3 adds **Learned Rules** (fix a category once, and CASIO
+asks whether to remember it for similar payments) and **Subscriptions**
+(regular payments found automatically, with price-change and missed-payment
+alerts). See [docs/ROADMAP.md](docs/ROADMAP.md)
 for what's built, what's next and how it maps to the competition requirements.
 
 ## What's inside
@@ -60,6 +63,12 @@ Open http://localhost:3000 and create an account.
 **Try Smart Import:** go to *Import Statements* and use the sample files
 linked under the upload box (also in `docs/samples/`).
 
+**Try learning and subscriptions:** import `sample-6-months.csv` (linked on
+the Import page). While checking it, change a "Swiggy Instamart" row to
+Groceries and pick "Always". Then open *Subscriptions* to see Netflix's price
+rise, a missed Spotify payment and a new ChatGPT subscription, and
+*Learned Rules* to edit, pause or remove the rule.
+
 **Optional AI categorisation:** add `ANTHROPIC_API_KEY=...` to `backend/.env`
 and restart the backend. Without it, CASIO uses its built-in keyword rules and
 says so on the review screen. Only the description text (with numbers, UPI ids
@@ -71,9 +80,10 @@ printed in the backend terminal (terminal 1). Copy the link from there.
 ## Run the tests
 
 ```bash
-cd backend && source .venv/bin/activate && pytest     # 65 tests
+cd backend && source .venv/bin/activate && pytest     # 86 tests
 cd frontend && npx tsc --noEmit && npm run lint && npm run build
-node docs/e2e-import-test.js                           # browser test (app must be running)
+node docs/e2e-import-test.js                           # browser tests (app must be running)
+node docs/e2e-learning-test.js
 ```
 
 ## Rules this codebase follows
